@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Menu, Vehicle, SellerProfile } from '../types';
 import { Phone, MessageCircle, Info } from 'lucide-react';
 import VehicleCard from './VehicleCard';
+import PublicVehicleDetail from './PublicVehicleDetail';
 
 interface PublicMenuViewProps {
   menu: Menu;
@@ -11,8 +12,19 @@ interface PublicMenuViewProps {
 }
 
 const PublicMenuView: React.FC<PublicMenuViewProps> = ({ menu, vehicles, sellerProfile }) => {
-  // Use the menu's configuration as the default state, defaulting to true if undefined
   const [showPrices, setShowPrices] = useState(menu.withPrice ?? true);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+
+  if (selectedVehicle) {
+    return (
+      <PublicVehicleDetail 
+        vehicle={selectedVehicle} 
+        sellerProfile={sellerProfile} 
+        onBack={() => setSelectedVehicle(null)} 
+        showPrice={showPrices}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -62,12 +74,16 @@ const PublicMenuView: React.FC<PublicMenuViewProps> = ({ menu, vehicles, sellerP
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {vehicles.map(v => (
-                         <div key={v.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-xl transition-all duration-300">
-                             <div className="relative h-56 w-full">
-                                <img src={v.imageUrl} className="w-full h-full object-cover" alt={v.model}/>
-                                <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/70 to-transparent p-4 pt-10">
-                                    <h3 className="text-white font-bold text-lg">{v.make} {v.model}</h3>
-                                    <p className="text-gray-200 text-sm">{v.year} • {v.mileage.toLocaleString()} km</p>
+                         <div 
+                            key={v.id} 
+                            onClick={() => setSelectedVehicle(v)}
+                            className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                         >
+                             <div className="relative h-56 w-full overflow-hidden">
+                                <img src={v.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={v.model}/>
+                                <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 pt-12">
+                                    <h3 className="text-white font-bold text-lg leading-tight">{v.make} {v.model}</h3>
+                                    <p className="text-gray-200 text-xs font-medium mt-1 opacity-90">{v.year} • {v.mileage.toLocaleString()} km</p>
                                 </div>
                              </div>
                              <div className="p-4">
@@ -77,18 +93,13 @@ const PublicMenuView: React.FC<PublicMenuViewProps> = ({ menu, vehicles, sellerP
                                  <p className="text-sm text-gray-600 line-clamp-2 mb-4">
                                      {v.description}
                                  </p>
-                                 <div className="flex gap-2">
-                                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{v.transmission}</span>
-                                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{v.fuelType}</span>
+                                 <div className="flex gap-2 mb-4">
+                                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200">{v.transmission}</span>
+                                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200">{v.fuelType}</span>
                                  </div>
-                             </div>
-                             <div className="p-4 border-t border-gray-100">
-                                 <button 
-                                    onClick={() => window.open(`https://wa.me/?text=Hola, me interesa el ${v.make} ${v.model} del catálogo.`, '_blank')}
-                                    className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"
-                                 >
-                                     <MessageCircle size={18} /> Consultar
-                                 </button>
+                                 <div className="w-full bg-indigo-50 text-indigo-700 font-medium py-2 rounded-lg text-center text-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                     Ver Detalles
+                                 </div>
                              </div>
                          </div>
                     ))}
@@ -100,7 +111,7 @@ const PublicMenuView: React.FC<PublicMenuViewProps> = ({ menu, vehicles, sellerP
         <div className="fixed bottom-6 right-6 z-40">
              <button 
                 onClick={() => window.open(`https://wa.me/?text=Hola, tengo una consulta sobre el catálogo "${menu.name}".`, '_blank')}
-                className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 font-bold animate-bounce-slow"
+                className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 font-bold animate-bounce-slow hover:scale-105 transition-transform"
              >
                 <MessageCircle size={24} /> 
                 <span className="hidden md:inline">Contactar Vendedor</span>
