@@ -259,6 +259,20 @@ const App: React.FC = () => {
          setQuoteContext({ lead: null, vehicle: null });
      }
   };
+  
+  const handleLoadDemoData = async () => {
+    setIsLoadingData(true);
+    try {
+        await seedInitialData(INITIAL_VEHICLES, INITIAL_LEADS, INITIAL_TASKS);
+        setVehicles(INITIAL_VEHICLES);
+        setLeads(INITIAL_LEADS);
+        setTasks(INITIAL_TASKS);
+    } catch(e) {
+        console.error("Error loading demo data", e);
+    } finally {
+        setIsLoadingData(false);
+    }
+  }
 
   // Navigation handlers
   const navigate = (view: AppView) => {
@@ -527,6 +541,17 @@ const App: React.FC = () => {
                   <p>Para activar la nube, configura tus credenciales en <span className="font-mono bg-red-900/80 px-1 rounded">services/firebase.ts</span></p>
               </div>
           )}
+          {/* Demo Data Button */}
+          {leads.length === 0 && Object.keys(vehicles).length === 0 && (
+             <button
+               onClick={handleLoadDemoData}
+               className="mx-4 mb-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 rounded-lg border border-slate-700 transition-colors flex items-center justify-center gap-2"
+             >
+               <Database size={14} />
+               Cargar Datos de Ejemplo
+             </button>
+          )}
+
           <button 
             onClick={() => setProfileModalOpen(true)}
             className="w-full p-4 border-t border-slate-800 group hover:bg-slate-800 transition-colors"

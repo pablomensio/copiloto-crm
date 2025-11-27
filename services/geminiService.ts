@@ -70,9 +70,20 @@ export const analyzeLead = async (lead: Lead, vehicle: Vehicle): Promise<Analysi
 
   console.log(`[Copilot] Generating NEW analysis for lead ${lead.name}`);
 
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API Key not found in environment variables");
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey || apiKey === "TU_API_KEY_AQUI") {
+    // Return a dummy response if API key is not configured to avoid app crashing
+    console.warn("Gemini API Key missing or default. Returning mock analysis.");
+    return {
+        response: {
+            analisis: "Modo de demostración (Sin conexión a IA).",
+            accion_sugerida: "Configurar API Key",
+            urgencia: UrgencyLevel.Baja,
+            borrador_mensaje: "Por favor configura tu VITE_GEMINI_API_KEY en el archivo .env para recibir sugerencias reales."
+        },
+        hash: currentHash,
+        fromCache: false
+    };
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -100,7 +111,7 @@ export const analyzeLead = async (lead: Lead, vehicle: Vehicle): Promise<Analysi
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: prompt,
       config: {
         systemInstruction: LEAD_ANALYSIS_INSTRUCTION,
@@ -132,9 +143,9 @@ export const analyzeLead = async (lead: Lead, vehicle: Vehicle): Promise<Analysi
 
 export const generateVehicleDescription = async (vehicleData: Partial<Vehicle>): Promise<string> => {
   console.log('[Copilot] Generating vehicle description for:', vehicleData.model);
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API Key not found in environment variables");
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey || apiKey === "TU_API_KEY_AQUI") {
+    return "Descripción automática no disponible (API Key faltante). Este es un vehículo excelente con grandes prestaciones.";
   }
   const ai = new GoogleGenAI({ apiKey });
 
@@ -150,7 +161,7 @@ export const generateVehicleDescription = async (vehicleData: Partial<Vehicle>):
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: prompt,
       config: {
         systemInstruction: VEHICLE_DESCRIPTION_INSTRUCTION,
@@ -166,6 +177,6 @@ export const generateVehicleDescription = async (vehicleData: Partial<Vehicle>):
     return text.trim();
   } catch (error) {
     console.error("Gemini Description Generation Error:", error);
-    throw new Error("Failed to generate vehicle description.");
+    return "No se pudo generar la descripción automáticamente.";
   }
 };
