@@ -29,7 +29,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ tasks, onTaskToggle, onAddT
   });
   const completedTasks = sortedTasks.filter(t => t.isCompleted);
 
-  const TaskRow = ({ task }: { task: Task }) => (
+  const TaskRow: React.FC<{ task: Task }> = ({ task }) => (
     <div className={`group flex items-center p-4 bg-white border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors ${task.isCompleted ? 'opacity-60' : ''}`}>
         <button 
             onClick={() => onTaskToggle(task)}
