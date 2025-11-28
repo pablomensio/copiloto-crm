@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { Lead, Vehicle, CopilotResponse, UrgencyLevel } from "../types";
+import firebaseConfig from "../firebaseConfig";
 
 const LEAD_ANALYSIS_INSTRUCTION = `
 Eres "AutoSales Copilot", un asistente experto en ventas automotrices diseñado para maximizar la conversión de leads. Tu tono es profesional, conciso y estratégico.
@@ -45,7 +46,7 @@ const generateAnalysisHash = (lead: Lead, vehicle: Vehicle): string => {
   const lastInteraction = lead.history.length > 0 ? lead.history[0].id : 'none';
   const historySig = `${lead.history.length}-${lastInteraction}`;
   const vehicleSig = `${vehicle.id}-${vehicle.status}-${vehicle.price}`;
-  
+
   return `${leadSig}|${vehicleSig}|${historySig}`;
 };
 
@@ -70,19 +71,21 @@ export const analyzeLead = async (lead: Lead, vehicle: Vehicle): Promise<Analysi
 
   console.log(`[Copilot] Generating NEW analysis for lead ${lead.name}`);
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  // Try to get API key from env, fallback to firebase config (assuming same project)
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || firebaseConfig.apiKey;
+
   if (!apiKey || apiKey === "TU_API_KEY_AQUI") {
     // Return a dummy response if API key is not configured to avoid app crashing
     console.warn("Gemini API Key missing or default. Returning mock analysis.");
     return {
-        response: {
-            analisis: "Modo de demostración (Sin conexión a IA).",
-            accion_sugerida: "Configurar API Key",
-            urgencia: UrgencyLevel.Baja,
-            borrador_mensaje: "Por favor configura tu VITE_GEMINI_API_KEY en el archivo .env para recibir sugerencias reales."
-        },
-        hash: currentHash,
-        fromCache: false
+      response: {
+        analisis: "Modo de demostración (Sin conexión a IA).",
+        accion_sugerida: "Configurar API Key",
+        urgencia: UrgencyLevel.Baja,
+        borrador_mensaje: "Por favor configura tu VITE_GEMINI_API_KEY en el archivo .env para recibir sugerencias reales."
+      },
+      hash: currentHash,
+      fromCache: false
     };
   }
 
@@ -143,7 +146,9 @@ export const analyzeLead = async (lead: Lead, vehicle: Vehicle): Promise<Analysi
 
 export const generateVehicleDescription = async (vehicleData: Partial<Vehicle>): Promise<string> => {
   console.log('[Copilot] Generating vehicle description for:', vehicleData.model);
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || firebaseConfig.apiKey;
+
   if (!apiKey || apiKey === "TU_API_KEY_AQUI") {
     return "Descripción automática no disponible (API Key faltante). Este es un vehículo excelente con grandes prestaciones.";
   }
@@ -169,10 +174,10 @@ export const generateVehicleDescription = async (vehicleData: Partial<Vehicle>):
         maxOutputTokens: 150
       }
     });
-    
+
     const text = response.text;
     if (!text) {
-        throw new Error("AI did not return a description.");
+      throw new Error("AI did not return a description.");
     }
     return text.trim();
   } catch (error) {

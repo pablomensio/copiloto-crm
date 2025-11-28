@@ -3,17 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs, getDoc, doc, setDoc, writeBatch, updateDoc, increment } from "firebase/firestore";
 import { Vehicle, Lead, Task, Menu } from "../types";
 
-// ------------------------------------------------------------------
-// CONFIGURACIÓN: REEMPLAZA ESTO CON TUS CLAVES DE FIREBASE CONSOLE
-// ------------------------------------------------------------------
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
-};
+import firebaseConfig from "../firebaseConfig";
 
 // Check if credentials are still placeholders
 const isConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "TU_API_KEY_AQUI" && firebaseConfig.projectId !== "TU_PROYECTO_ID";
@@ -222,20 +212,20 @@ export const saveVehiclesBatch = async (vehicles: Vehicle[]) => {
  * Seed initial data if DB is empty
  */
 export const seedInitialData = async (
-  initialVehicles: Record<string, Vehicle>, 
+  initialVehicles: Record<string, Vehicle>,
   initialLeads: Lead[],
   initialTasks: Task[] = []
 ) => {
   checkDb();
   console.log("Seeding initial data to Firebase...");
-  
+
   const batch = writeBatch(db);
-  
+
   // Seed Vehicles
   Object.values(initialVehicles).forEach(v => {
     batch.set(doc(db, VEHICLES_COLLECTION, v.id), v);
   });
-  
+
   // Seed Leads
   initialLeads.forEach(l => {
     batch.set(doc(db, LEADS_COLLECTION, l.id), l);
