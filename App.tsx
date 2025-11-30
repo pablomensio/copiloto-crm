@@ -76,10 +76,41 @@ const App: React.FC = () => {
         setAuthLoading(false);
       } else {
         setAuthLoading(false);
+        // If public view, we might not need auth, but for now let's allow loading to finish
+        setIsLoadingData(false);
       }
     });
     return () => unsubscribe();
   }, []);
+
+  // Fetch Data when User is Authenticated
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const loadData = async () => {
+      setIsLoadingData(true);
+      try {
+        const [fetchedVehicles, fetchedLeads, fetchedTasks, fetchedMenus] = await Promise.all([
+          fetchVehicles(),
+          fetchLeads(),
+          fetchTasks(),
+          fetchMenus()
+        ]);
+
+        setVehicles(fetchedVehicles);
+        setLeads(fetchedLeads);
+        setTasks(fetchedTasks);
+        setMenus(fetchedMenus);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setDbError(true);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    loadData();
+  }, [currentUser]);
 
   // Data handlers
   const handleLeadUpdate = async (updatedLead: Lead) => {
