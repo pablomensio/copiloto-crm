@@ -1,8 +1,39 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Vehicles: Public Read (for catalogs), Auth Write
+    match /vehicles/{vehicleId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Menus: Public Read (for shared links), Auth Write
+    match /menus/{menuId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Leads: Public Create (Chatbot/Forms), Auth Read/Update
+    match /leads/{leadId} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated();
+    }
+
+    // Tasks: Auth Only
+    match /tasks/{taskId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Default: Deny all other access
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }

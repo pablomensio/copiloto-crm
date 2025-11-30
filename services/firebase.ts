@@ -1,6 +1,7 @@
 
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs, getDoc, doc, setDoc, writeBatch, updateDoc, increment } from "firebase/firestore";
+import { getAuth, signInWithEmailAndPassword, signOut as firebaseSignOut } from "firebase/auth";
 import { Vehicle, Lead, Task, Menu } from "../types";
 
 import firebaseConfig from "../firebaseConfig";
@@ -10,15 +11,29 @@ const isConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "TU_API_
 
 let app;
 let db: any;
+let auth: any;
 
 // Only initialize if configured to avoid "Permission denied" errors on placeholder project
 if (isConfigured) {
   try {
     app = initializeApp(firebaseConfig);
     db = getFirestore(app);
+    auth = getAuth(app);
   } catch (error) {
     console.error("Error initializing Firebase:", error);
   }
+}
+
+export { auth };
+
+export const signIn = async (email, password) => {
+  if (!auth) throw new Error("Auth not initialized");
+  return signInWithEmailAndPassword(auth, email, password);
+}
+
+export const signOut = async () => {
+  if (!auth) return;
+  return firebaseSignOut(auth);
 }
 
 // Collection References

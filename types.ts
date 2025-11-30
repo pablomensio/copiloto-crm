@@ -73,6 +73,12 @@ export interface Lead {
   history: Interaction[];
   avatarUrl: string;
   lastAnalysis?: AnalysisCache;
+  // Extended fields for Chatbot/Public View
+  phone?: string;
+  source?: string;
+  status?: string;
+  menuId?: string;
+  createdAt?: string;
 }
 
 export type Priority = 'High' | 'Medium' | 'Low';
