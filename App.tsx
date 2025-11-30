@@ -16,9 +16,11 @@ import AddHistoryModal from './components/AddHistoryModal';
 import MenuManagementView from './components/MenuManagementView';
 import MenuEditorView from './components/MenuEditorView';
 import PublicMenuView from './components/PublicMenuView';
+import PublicVehicleDetail from './components/PublicVehicleDetail';
 import LoginView from './components/LoginView';
+import LeadSelectorModal from './components/LeadSelectorModal';
 import { Zap, LayoutDashboard, Car, Menu as MenuIcon, X, Edit, Calculator, TrendingUp, Database, AlertTriangle, Calendar as CalendarIcon, CheckSquare, LogOut } from 'lucide-react';
-import { fetchVehicles, fetchLeads, fetchTasks, fetchMenus, saveVehicle, saveLead, saveVehiclesBatch, saveTask, saveMenu, incrementMenuView, seedInitialData, getMenu, auth, signOut } from './services/firebase';
+import { fetchVehicles, fetchLeads, fetchTasks, fetchMenus, saveVehicle, saveLead, saveVehiclesBatch, saveTask, saveMenu, incrementMenuView, seedInitialData, getMenu, auth, signOut, deleteVehicle } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
 const App: React.FC = () => {
@@ -58,83 +60,25 @@ const App: React.FC = () => {
   const [isBulkUploadModalOpen, setBulkUploadModalOpen] = useState(false);
   const [isAddTaskModalOpen, setAddTaskModalOpen] = useState(false);
   const [isAddHistoryModalOpen, setAddHistoryModalOpen] = useState(false);
+  const [isLeadSelectorOpen, setLeadSelectorOpen] = useState(false);
 
   // Tracking which lead is being acted upon (for tasks/notes)
   const [targetLeadId, setTargetLeadId] = useState<string | undefined>(undefined);
 
+  // Tracking which vehicle is being edited
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | undefined>(undefined);
+
   // Initial Data Fetching from Firebase and URL Param Check
   useEffect(() => {
-    const loadData = async () => {
-      // 1. Check for Public Menu URL Param (?menu=XYZ)
-      const params = new URLSearchParams(window.location.search);
-      const publicMenuId = params.get('menu');
-      const publicVehicleId = params.get('vehicle');
-      const publicViewType = params.get('view');
-
-      const isPublicView = !!publicMenuId || !!publicVehicleId || publicViewType === 'trade-in';
-
-      try {
-        // Parallel fetching
-        const [remoteVehicles, remoteLeads, remoteTasks, remoteMenus] = await Promise.all([
-          fetchVehicles(),
-          fetchLeads(),
-          fetchTasks(),
-          fetchMenus()
-        ]);
-
-        // Check if DB is empty (first run), if so, seed it
-        if (Object.keys(remoteVehicles).length === 0 && remoteLeads.length === 0) {
-          await seedInitialData(INITIAL_VEHICLES, INITIAL_LEADS, INITIAL_TASKS);
-          setVehicles(INITIAL_VEHICLES);
-          setLeads(INITIAL_LEADS);
-          setTasks(INITIAL_TASKS);
-          setMenus([]);
-        } else {
-          setVehicles(remoteVehicles);
-          setLeads(remoteLeads);
-          setTasks(remoteTasks);
-          setMenus(remoteMenus);
-        }
-
-        // Handle Public Menu Logic
-        if (publicMenuId) {
-          const foundMenu = await getMenu(publicMenuId);
-          if (foundMenu) {
-            setPublicMenu(foundMenu);
-            setCurrentView('public_menu');
-            // Increment view count in background
-            incrementMenuView(publicMenuId);
-          } else {
-            console.warn("Menu ID from URL not found");
-          }
-        }
-
-      } catch (e) {
-        console.warn("Using local data (Offline Mode)");
-        // Fallback to local data if Firebase fails (e.g., config not set)
-        setDbError(true);
-        setVehicles(INITIAL_VEHICLES);
-        setLeads(INITIAL_LEADS);
-        setTasks(INITIAL_TASKS);
-      } finally {
-        setIsLoadingData(false);
-      }
-    };
-
-    loadData();
-  }, []);
-
-  // Auth Listener
-  useEffect(() => {
-    if (auth) {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
         setCurrentUser(user);
         setAuthLoading(false);
-      });
-      return () => unsubscribe();
-    } else {
-      setAuthLoading(false);
-    }
+      } else {
+        setAuthLoading(false);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   // Data handlers
@@ -163,6 +107,7 @@ const App: React.FC = () => {
       [newVehicle.id]: newVehicle
     }));
     setAddVehicleModalOpen(false);
+    setEditingVehicle(undefined); // Clear editing state
 
     // Persist to Firebase
     try {
@@ -171,6 +116,25 @@ const App: React.FC = () => {
       // Silent fail in offline mode
     }
   };
+
+  const handleUpdateVehicle = (vehicle: Vehicle) => {
+    setEditingVehicle(vehicle);
+    setAddVehicleModalOpen(true);
+  }
+
+  const handleDeleteVehicle = async (vehicleId: string) => {
+    // Optimistic Update
+    const updatedVehicles = { ...vehicles };
+    delete updatedVehicles[vehicleId];
+    setVehicles(updatedVehicles);
+    setCurrentView('inventory');
+
+    try {
+      await deleteVehicle(vehicleId);
+    } catch (e) {
+      // Silent fail
+    }
+  }
 
   const handleBulkImport = async (newVehicles: Vehicle[]) => {
     // Optimistic Update
@@ -307,12 +271,39 @@ const App: React.FC = () => {
     setCurrentUser(null);
   }
 
+  // Sharing Handlers
+  const handleShareVehicle = () => {
+    if (!selectedVehicleId) return;
+    const url = `${window.location.origin}?vehicle=${selectedVehicleId}`;
+    navigator.clipboard.writeText(url);
+    // You might want to use a proper toast notification here
+    alert('Enlace copiado al portapapeles: ' + url);
+  };
+
+  const handleSendToClient = () => {
+    setLeadSelectorOpen(true);
+  };
+
+  const handleLeadSelectForVehicle = (lead: Lead) => {
+    if (!selectedVehicleId) return;
+    const vehicle = vehicles[selectedVehicleId];
+    const url = `${window.location.origin}?vehicle=${selectedVehicleId}`;
+
+    const message = `Hola ${lead.name}, pensé que te podría interesar este ${vehicle.make} ${vehicle.model}: ${url}`;
+    const cleanPhone = lead.phone ? lead.phone.replace(/\D/g, '') : '';
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+
+    window.open(waUrl, '_blank');
+    setLeadSelectorOpen(false);
+  };
+
   // Navigation handlers
   const navigate = (view: AppView) => {
     // Remove query param if navigating away from public view explicitly
-    if (currentView === 'public_menu' && view !== 'public_menu') {
+    if ((currentView === 'public_menu' || currentView === 'public_vehicle') && view !== currentView) {
       const url = new URL(window.location.href);
       url.searchParams.delete('menu');
+      url.searchParams.delete('vehicle');
       window.history.pushState({}, '', url);
       setPublicMenu(null);
     }
@@ -373,7 +364,7 @@ const App: React.FC = () => {
           <InventoryView
             vehicles={Object.values(vehicles)}
             onVehicleSelect={navigateToVehicleDetail}
-            onAddVehicleClick={() => setAddVehicleModalOpen(true)}
+            onAddVehicleClick={() => { setEditingVehicle(undefined); setAddVehicleModalOpen(true); }}
             onBulkUploadClick={() => setBulkUploadModalOpen(true)}
             markup={markup}
           />
@@ -389,6 +380,10 @@ const App: React.FC = () => {
             vehicle={vehicles[selectedVehicleId]}
             onBack={() => navigate('inventory')}
             markup={markup}
+            onShare={handleShareVehicle}
+            onSendToClient={handleSendToClient}
+            onEdit={handleUpdateVehicle}
+            onDelete={handleDeleteVehicle}
           />
         );
       case 'budget_calculator':
@@ -433,6 +428,16 @@ const App: React.FC = () => {
             sellerProfile={sellerProfile}
           />
         );
+      case 'public_vehicle':
+        if (!selectedVehicleId || !vehicles[selectedVehicleId]) return <div>Vehículo no encontrado</div>;
+        return (
+          <PublicVehicleDetail
+            vehicle={vehicles[selectedVehicleId]}
+            sellerProfile={sellerProfile}
+            onBack={() => { /* Optional: maybe redirect to home or do nothing */ }}
+            showPrice={true}
+          />
+        );
       default:
         return (
           <DashboardView
@@ -451,7 +456,7 @@ const App: React.FC = () => {
   };
 
   // If in Public Menu Mode, render simplified layout without Sidebar
-  if (currentView === 'public_menu') {
+  if (currentView === 'public_menu' || currentView === 'public_vehicle') {
     return renderContent();
   }
 
@@ -483,8 +488,8 @@ const App: React.FC = () => {
           <button
             onClick={() => navigate('dashboard')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${currentView === 'dashboard'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
           >
             <LayoutDashboard size={20} />
@@ -494,8 +499,8 @@ const App: React.FC = () => {
           <button
             onClick={() => navigate('tasks')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${currentView === 'tasks'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
           >
             <CheckSquare size={20} />
@@ -512,8 +517,8 @@ const App: React.FC = () => {
           <button
             onClick={() => navigate('calendar')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${currentView === 'calendar'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
           >
             <CalendarIcon size={20} />
@@ -523,8 +528,8 @@ const App: React.FC = () => {
           <button
             onClick={() => navigate('inventory')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${currentView === 'inventory' || currentView === 'vehicle_detail'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
           >
             <Car size={20} />
@@ -534,8 +539,8 @@ const App: React.FC = () => {
           <button
             onClick={() => navigate('menus')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${currentView === 'menus' || currentView === 'menu_editor'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
           >
             <MenuIcon size={20} />
@@ -545,8 +550,8 @@ const App: React.FC = () => {
           <button
             onClick={() => navigate('budget_calculator')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${currentView === 'budget_calculator'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
           >
             <Calculator size={20} />
@@ -556,8 +561,8 @@ const App: React.FC = () => {
           <button
             onClick={() => navigate('markup')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${currentView === 'markup'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
           >
             <TrendingUp size={20} />
@@ -653,6 +658,7 @@ const App: React.FC = () => {
         <AddVehicleModal
           onAdd={handleAddVehicle}
           onClose={() => setAddVehicleModalOpen(false)}
+          initialVehicle={editingVehicle}
         />
       )}
 
@@ -679,6 +685,15 @@ const App: React.FC = () => {
           leadName={leads.find(l => l.id === targetLeadId)?.name || 'Cliente'}
           onAdd={handleAddHistoryNote}
           onClose={() => setAddHistoryModalOpen(false)}
+        />
+      )}
+
+      {/* Lead Selector Modal */}
+      {isLeadSelectorOpen && (
+        <LeadSelectorModal
+          leads={leads}
+          onSelect={handleLeadSelectForVehicle}
+          onClose={() => setLeadSelectorOpen(false)}
         />
       )}
     </div>

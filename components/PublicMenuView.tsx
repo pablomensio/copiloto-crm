@@ -37,6 +37,7 @@ const PublicMenuView: React.FC<PublicMenuViewProps> = ({ menu, vehicles, sellerP
                         <div>
                             <p className="text-sm font-bold text-gray-900 leading-tight">{sellerProfile.name}</p>
                             <p className="text-xs text-gray-500">{sellerProfile.title}</p>
+                            {sellerProfile.companyName && <p className="text-[10px] text-indigo-600 font-medium">{sellerProfile.companyName}</p>}
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -111,7 +112,7 @@ const PublicMenuView: React.FC<PublicMenuViewProps> = ({ menu, vehicles, sellerP
             {/* Floating Contact */}
             <div className="fixed bottom-6 right-6 z-40">
                 <button
-                    onClick={() => window.open(`https://wa.me/?text=Hola, tengo una consulta sobre el catálogo "${menu.name}".`, '_blank')}
+                    onClick={() => window.open(`https://wa.me/${sellerProfile.phoneNumber || ''}?text=Hola ${sellerProfile.name}, tengo una consulta sobre el catálogo "${menu.name}".`, '_blank')}
                     className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 font-bold animate-bounce-slow hover:scale-105 transition-transform"
                 >
                     <MessageCircle size={24} />

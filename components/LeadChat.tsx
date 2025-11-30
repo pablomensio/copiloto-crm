@@ -218,7 +218,7 @@ export default function LeadChat({ menuId, carId, initialMessage }: LeadChatProp
       >
         <div className="bg-secondary text-white p-4 flex justify-between items-center shadow-sm">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <img src="/assets/chatbot_avatar.png" alt="Bot" className="w-8 h-8 rounded-full" />
             <h3 className="font-bold text-lg">Asistente Virtual</h3>
           </div>
           <button onClick={toggleOpen} className="text-white/80 hover:text-white transition-colors">

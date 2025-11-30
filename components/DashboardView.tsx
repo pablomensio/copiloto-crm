@@ -4,7 +4,7 @@ import { analyzeLead } from '../services/geminiService';
 import LeadCard from './LeadCard';
 import VehicleCard from './VehicleCard';
 import CopilotAction from './CopilotAction';
-import { Search, MessageSquare, DollarSign, Activity, Clock, MapPin, Plus, Calendar, FileText, Calculator } from 'lucide-react';
+import { Search, MessageSquare, DollarSign, Activity, Clock, MapPin, Plus, Calendar, FileText, Calculator, ArrowLeft } from 'lucide-react';
 
 interface DashboardViewProps {
   leads: Lead[];
@@ -34,6 +34,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [fabOpen, setFabOpen] = useState(false);
+
+  // Mobile View State
+  const [showMobileDetail, setShowMobileDetail] = useState(false);
 
   const selectedLead = leads.find(l => l.id === selectedLeadId) || leads[0];
   const selectedVehicle = selectedLead ? vehicles[selectedLead.interestedVehicleId] : null;
@@ -70,26 +73,37 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     runAnalysis();
   }, [selectedLeadId, selectedLead, selectedVehicle, onLeadUpdate]);
 
+  const handleLeadClick = (id: string) => {
+    setSelectedLeadId(id);
+    setShowMobileDetail(true);
+  };
+
   const formatDateDiff = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
 
-    if (diffHours < 1) return 'menos de 1h';
-    if (diffHours < 24) return `${diffHours} horas`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays} días`;
+    if (diffHours < 1) {
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      return diffMinutes === 0 ? 'Ahora' : `${diffMinutes}m`;
+    } else if (diffHours < 24) {
+      return `${diffHours}h`;
+    } else if (diffHours < 24 * 7) {
+      return `${Math.floor(diffHours / 24)}d`;
+    } else {
+      return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    }
   };
 
-  if (!selectedLead || !selectedVehicle) {
+  if (!selectedLead) {
     return <div className="p-8 text-center text-gray-500">No hay leads disponibles.</div>;
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-full relative">
-      {/* Sidebar */}
-      <div className="w-full md:w-80 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col h-auto md:h-full z-10">
+    <div className="flex h-screen bg-gray-100">
+      {/* Sidebar for Leads */}
+      <div className={`w-full md:w-80 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col h-full z-10 ${showMobileDetail ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-gray-100">
           <div className="relative">
             <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
@@ -108,15 +122,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               key={lead.id}
               lead={lead}
               active={selectedLeadId === lead.id}
-              onClick={() => setSelectedLeadId(lead.id)}
+              onClick={() => handleLeadClick(lead.id)}
             />
           ))}
         </div>
       </div>
 
-      {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50 pb-24 md:pb-8">
+      {/* Main Content - Hidden on mobile if list is shown */}
+      <main className={`flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50 pb-24 md:pb-8 ${!showMobileDetail ? 'hidden md:block' : 'block'}`}>
         <div className="max-w-6xl mx-auto space-y-6">
+
+          {/* Mobile Back Button */}
+          <button
+            onClick={() => setShowMobileDetail(false)}
+            className="md:hidden flex items-center gap-2 text-gray-500 mb-4 font-medium"
+          >
+            <ArrowLeft size={18} /> Volver a la lista
+          </button>
 
           {/* CLIENT PROFILE HEADER */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -141,42 +163,41 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <div className="flex items-center gap-4 text-sm text-gray-400 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6 w-full md:w-auto">
               <div>
-                <button
-                  onClick={() => onQuote(selectedLead, selectedVehicle)}
-                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium shadow-md hover:bg-indigo-700 transition-colors"
-                >
-                  <Calculator size={16} />
-                  Cotizar
-                </button>
+                {selectedVehicle && (
+                  <button
+                    onClick={() => onQuote(selectedLead, selectedVehicle)}
+                    className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium shadow-md hover:bg-indigo-700 transition-colors"
+                  >
+                    <Calculator size={16} />
+                    Cotizar
+                  </button>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Adjusted Grid Layout: 2 Columns on Large Screens instead of 3 to reduce width of Strategy column */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
             {/* Left Column: Context Data */}
-            <div className="space-y-6 lg:col-span-1">
-              <section>
-                <div className="flex justify-between items-center mb-3 px-1">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Contexto Operativo</h3>
-                </div>
+            <div>
+              <div className="flex justify-between items-center mb-3 px-1">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                  <MessageSquare size={14} /> Historial de Interacciones
+                </h3>
+                <span className="text-[10px] text-gray-400 bg-white px-2 py-0.5 rounded-full border border-gray-200 shadow-sm">
+                  Última: {formatDateDiff(selectedLead.history[0]?.date || new Date().toISOString())}
+                </span>
+              </div>
 
+              {selectedVehicle && (
                 <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Vehículo de Interés</h4>
-                  <VehicleCard
-                    vehicle={selectedVehicle}
-                    markup={markup}
-                    onClick={() => onVehicleClick(selectedVehicle.id)}
-                  />
-                  <button
-                    onClick={() => onQuote(selectedLead, selectedVehicle)}
-                    className="w-full mt-2 py-2 border border-dashed border-indigo-300 text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Calculator size={14} /> Cotizar Financiación
-                  </button>
+                  <VehicleCard vehicle={selectedVehicle} markup={markup} onClick={() => onVehicleClick(selectedVehicle.id)} />
                 </div>
+              )}
 
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Historial de Interacciones</h4>
+              <section>
+                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 px-1">Actividad Reciente</h4>
                 <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4 shadow-sm max-h-[400px] overflow-y-auto custom-scrollbar">
                   {selectedLead.history.map((interaction) => (
                     <div key={interaction.id} className="relative pl-4 pb-4 border-l-2 border-indigo-100 last:pb-0 last:border-l-0">
@@ -208,7 +229,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             <div className="flex justify-between items-center mb-1">
                               <p className="font-bold text-green-800">Presupuesto Guardado</p>
                               <button
-                                onClick={() => onOpenBudget(selectedLead, selectedVehicle, interaction.budget!)}
+                                onClick={() => selectedVehicle && onOpenBudget(selectedLead, selectedVehicle, interaction.budget!)}
                                 className="text-[10px] bg-white border border-green-200 text-green-700 px-2 py-0.5 rounded hover:bg-green-50 transition-colors"
                               >
                                 Ver Detalle
@@ -229,7 +250,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             {/* Right Column: AI Action */}
-            <div className="lg:col-span-2">
+            <div>
               <div className="flex justify-between items-center mb-3 px-1">
                 <h3 className="text-xs font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-2">
                   <span className="relative flex h-2 w-2">
@@ -271,10 +292,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                   <div>
                     <p className="font-semibold mb-1 text-gray-800">Estado del Vehículo</p>
-                    <div className="flex flex-col gap-1 pl-2 border-l-2 border-gray-200">
-                      <span>Disponibilidad: <span className={selectedVehicle.status === 'Disponible' ? 'text-green-600 font-medium' : 'text-orange-600 font-medium'}>{selectedVehicle.status}</span></span>
-                      <span>Valor: ${selectedVehicle.price.toLocaleString()}</span>
-                    </div>
+                    {selectedVehicle ? (
+                      <div className="flex flex-col gap-1 pl-2 border-l-2 border-gray-200">
+                        <span>Disponibilidad: <span className={selectedVehicle.status === 'Disponible' ? 'text-green-600 font-medium' : 'text-orange-600 font-medium'}>{selectedVehicle.status}</span></span>
+                        <span>Valor: ${selectedVehicle.price.toLocaleString()}</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-1 pl-2 border-l-2 border-gray-200">
+                        <span className="text-gray-400 italic">No asignado</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -287,15 +314,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="fixed bottom-6 right-6 flex flex-col items-end space-y-3 z-30">
           {fabOpen && (
             <>
-              <button
-                onClick={() => { onQuote(selectedLead, selectedVehicle); setFabOpen(false); }}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-full shadow-lg border border-gray-100 hover:bg-gray-50 transition-all animate-scaleIn"
-              >
-                <span className="text-sm font-medium">Cotizar</span>
-                <div className="bg-green-100 p-2 rounded-full text-green-600">
-                  <Calculator size={18} />
-                </div>
-              </button>
+              {selectedVehicle && (
+                <button
+                  onClick={() => { onQuote(selectedLead, selectedVehicle); setFabOpen(false); }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-full shadow-lg border border-gray-100 hover:bg-gray-50 transition-all animate-scaleIn"
+                >
+                  <span className="text-sm font-medium">Cotizar</span>
+                  <div className="bg-green-100 p-2 rounded-full text-green-600">
+                    <Calculator size={18} />
+                  </div>
+                </button>
+              )}
               <button
                 onClick={() => { onAddNote(selectedLead.id); setFabOpen(false); }}
                 className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-full shadow-lg border border-gray-100 hover:bg-gray-50 transition-all animate-scaleIn"

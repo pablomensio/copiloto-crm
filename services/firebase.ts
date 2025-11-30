@@ -1,6 +1,6 @@
 
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, getDoc, doc, setDoc, writeBatch, updateDoc, increment } from "firebase/firestore";
+import { getFirestore, collection, getDocs, getDoc, doc, setDoc, deleteDoc, writeBatch, updateDoc, increment } from "firebase/firestore";
 import { getAuth, signInWithEmailAndPassword, signOut as firebaseSignOut } from "firebase/auth";
 import { Vehicle, Lead, Task, Menu } from "../types";
 
@@ -140,12 +140,28 @@ export const getMenu = async (id: string): Promise<Menu | null> => {
 /**
  * Save or Update a single vehicle
  */
+/**
+ * Save or Update a single vehicle
+ */
 export const saveVehicle = async (vehicle: Vehicle) => {
   checkDb();
   try {
     await setDoc(doc(db, VEHICLES_COLLECTION, vehicle.id), vehicle);
   } catch (error) {
     console.error("Error saving vehicle:", error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a vehicle
+ */
+export const deleteVehicle = async (vehicleId: string) => {
+  checkDb();
+  try {
+    await deleteDoc(doc(db, VEHICLES_COLLECTION, vehicleId));
+  } catch (error) {
+    console.error("Error deleting vehicle:", error);
     throw error;
   }
 };

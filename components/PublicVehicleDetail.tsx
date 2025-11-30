@@ -11,13 +11,13 @@ interface PublicVehicleDetailProps {
 }
 
 const PublicVehicleDetail: React.FC<PublicVehicleDetailProps> = ({ vehicle, sellerProfile, onBack, showPrice }) => {
-  const whatsappUrl = `https://wa.me/?text=Hola ${sellerProfile.name}, estoy interesado en el ${vehicle.make} ${vehicle.model} (${vehicle.year}) que vi en tu catálogo.`;
+  const whatsappUrl = `https://wa.me/${sellerProfile.phoneNumber || ''}?text=Hola ${sellerProfile.name}, estoy interesado en el ${vehicle.make} ${vehicle.model} (${vehicle.year}) que vi en tu catálogo.`;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 animate-fade-in">
       {/* Navbar simplificado */}
       <div className="bg-white border-b sticky top-0 z-30 px-4 py-3 flex items-center justify-between shadow-sm">
-        <button 
+        <button
           onClick={onBack}
           className="flex items-center gap-2 text-gray-600 hover:text-indigo-600 font-medium transition-colors"
         >
@@ -31,9 +31,9 @@ const PublicVehicleDetail: React.FC<PublicVehicleDetailProps> = ({ vehicle, sell
         {/* Imagen Principal */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
           <div className="aspect-video w-full bg-gray-100 relative">
-            <img 
-              src={vehicle.imageUrl} 
-              alt={`${vehicle.make} ${vehicle.model}`} 
+            <img
+              src={vehicle.imageUrl}
+              alt={`${vehicle.make} ${vehicle.model}`}
               className="w-full h-full object-cover"
             />
             {showPrice && (
@@ -78,18 +78,18 @@ const PublicVehicleDetail: React.FC<PublicVehicleDetailProps> = ({ vehicle, sell
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Detalles y Equipamiento</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                 <div className="flex items-center gap-2 text-gray-700">
-                    <CheckCircle2 size={16} className="text-green-500" /> Documentación al día
-                 </div>
-                 <div className="flex items-center gap-2 text-gray-700">
-                    <CheckCircle2 size={16} className="text-green-500" /> Mantenimientos registrados
-                 </div>
-                 <div className="flex items-center gap-2 text-gray-700">
-                    <CheckCircle2 size={16} className="text-green-500" /> Sin multas
-                 </div>
-                 <div className="flex items-center gap-2 text-gray-700">
-                    <CheckCircle2 size={16} className="text-green-500" /> Transferencia inmediata
-                 </div>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <CheckCircle2 size={16} className="text-green-500" /> Documentación al día
+                </div>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <CheckCircle2 size={16} className="text-green-500" /> Mantenimientos registrados
+                </div>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <CheckCircle2 size={16} className="text-green-500" /> Sin multas
+                </div>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <CheckCircle2 size={16} className="text-green-500" /> Transferencia inmediata
+                </div>
               </div>
             </div>
           </div>
@@ -99,8 +99,8 @@ const PublicVehicleDetail: React.FC<PublicVehicleDetailProps> = ({ vehicle, sell
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 sticky top-24">
               <h3 className="font-bold text-gray-900 mb-4">¿Te interesa este auto?</h3>
               <p className="text-sm text-gray-500 mb-6">Contacta directamente al vendedor para agendar una visita o consultar detalles.</p>
-              
-              <a 
+
+              <a
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -109,9 +109,11 @@ const PublicVehicleDetail: React.FC<PublicVehicleDetailProps> = ({ vehicle, sell
                 <MessageCircle size={20} />
                 Enviar WhatsApp
               </a>
-              
+
               <div className="text-center">
-                 <p className="text-xs text-gray-400 mt-4">Referencia: {vehicle.make} {vehicle.model} #{vehicle.id.slice(-4)}</p>
+                {sellerProfile.companyName && <p className="font-bold text-gray-800">{sellerProfile.companyName}</p>}
+                {sellerProfile.businessHours && <p className="text-xs text-gray-500 mt-1">Horario: {sellerProfile.businessHours}</p>}
+                <p className="text-xs text-gray-400 mt-4">Referencia: {vehicle.make} {vehicle.model} #{vehicle.id.slice(-4)}</p>
               </div>
             </div>
           </div>

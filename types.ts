@@ -105,10 +105,13 @@ export interface Menu {
   withPrice: boolean; // New field to control price visibility
 }
 
-export type AppView = 'dashboard' | 'inventory' | 'vehicle_detail' | 'budget_calculator' | 'markup' | 'calendar' | 'tasks' | 'menus' | 'public_menu' | 'menu_editor';
+export type AppView = 'dashboard' | 'inventory' | 'vehicle_detail' | 'budget_calculator' | 'markup' | 'calendar' | 'tasks' | 'menus' | 'public_menu' | 'menu_editor' | 'public_vehicle';
 
 export interface SellerProfile {
   name: string;
   title: string;
   avatarUrl: string; // Can be a URL or a base64 data URI
+  companyName?: string;
+  phoneNumber?: string;
+  businessHours?: string;
 }
