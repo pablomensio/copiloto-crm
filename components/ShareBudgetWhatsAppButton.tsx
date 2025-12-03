@@ -1,26 +1,14 @@
 import React from 'react';
 import { MessageCircle } from 'lucide-react';
-
-interface Budget {
-  valorVehiculo: number;
-  transferencia: number;
-  costoOtorgamiento: number;
-}
-
-interface Coverage {
-  autoUsado: number;
-  pesos: number;
-  sena: number;
-  credito: number;
-}
+import { Lead, Vehicle, BudgetCalculation } from '../types';
 
 interface ShareBudgetWhatsAppButtonProps {
-  aCubrir: Budget;
-  comoSeCubre: Coverage;
-  diferencia: number;
-  totalACubrir: number;
-  totalComoSeCubre: number;
-  disabled: boolean;
+  lead: Lead;
+  vehicle: Vehicle;
+  budget: BudgetCalculation;
+  disabled?: boolean;
+  trackingUrl?: string;
+  onBeforeShare?: () => Promise<string | null>; // Returns tracking URL or null
 }
 
 const formatCurrency = (value: number): string => {
@@ -33,42 +21,48 @@ const formatCurrency = (value: number): string => {
 };
 
 const ShareBudgetWhatsAppButton: React.FC<ShareBudgetWhatsAppButtonProps> = ({
-  aCubrir,
-  comoSeCubre,
-  diferencia,
-  totalACubrir,
-  totalComoSeCubre,
-  disabled
+  lead,
+  vehicle,
+  budget,
+  disabled,
+  trackingUrl
 }) => {
 
   const generateMessage = () => {
-    let message = "Hola, te comparto el presupuesto detallado:\n\n";
+    const { items, totalACubrir, totalEntregado, diferencia } = budget;
+
+    let message = `Hola ${lead.name}, te comparto el presupuesto detallado para el ${vehicle.make} ${vehicle.model}:\n\n`;
     message += "DETALLE A CUBRIR:\n";
-    message += `- Valor del Vehículo: ${formatCurrency(aCubrir.valorVehiculo)}\n`;
-    message += `- Transferencia: ${formatCurrency(aCubrir.transferencia)}\n`;
-    if (aCubrir.costoOtorgamiento > 0) {
-      message += `- Costo de Otorgamiento: ${formatCurrency(aCubrir.costoOtorgamiento)}\n`;
+    message += `- Valor del Vehículo: ${formatCurrency(items.valorVehiculo)}\n`;
+    message += `- Transferencia: ${formatCurrency(items.transferencia)}\n`;
+    if (items.costoOtorgamiento > 0) {
+      message += `- Costo de Otorgamiento: ${formatCurrency(items.costoOtorgamiento)}\n`;
     }
     message += `*TOTAL A CUBRIR: ${formatCurrency(totalACubrir)}*\n\n`;
 
     message += "DETALLE DE TU ENTREGA:\n";
-    if (comoSeCubre.autoUsado > 0) {
-      message += `- Auto Usado: ${formatCurrency(comoSeCubre.autoUsado)}\n`;
+    if (items.autoUsado > 0) {
+      message += `- Auto Usado: ${formatCurrency(items.autoUsado)}\n`;
     }
-    if (comoSeCubre.pesos > 0) {
-      message += `- Pesos: ${formatCurrency(comoSeCubre.pesos)}\n`;
+    if (items.pesos > 0) {
+      message += `- Pesos: ${formatCurrency(items.pesos)}\n`;
     }
-    if (comoSeCubre.sena > 0) {
-      message += `- Seña: ${formatCurrency(comoSeCubre.sena)}\n`;
+    if (items.sena > 0) {
+      message += `- Seña: ${formatCurrency(items.sena)}\n`;
     }
-    if (comoSeCubre.credito > 0) {
-      message += `- Crédito: ${formatCurrency(comoSeCubre.credito)}\n`;
+    if (items.credito > 0) {
+      message += `- Crédito: ${formatCurrency(items.credito)}\n`;
     }
-    message += `*TOTAL ENTREGADO: ${formatCurrency(totalComoSeCubre)}*\n\n`;
+    message += `*TOTAL ENTREGADO: ${formatCurrency(totalEntregado)}*\n\n`;
 
     message += "----------------------------\n";
     message += `*DIFERENCIA: ${formatCurrency(diferencia)}*\n`;
     message += "----------------------------\n\n";
+
+    if (trackingUrl) {
+      message += `Ver presupuesto online: ${trackingUrl}\n\n`;
+    }
+
     message += "¡Quedo a tu disposición para cualquier consulta!";
 
     return encodeURIComponent(message);
@@ -76,7 +70,10 @@ const ShareBudgetWhatsAppButton: React.FC<ShareBudgetWhatsAppButtonProps> = ({
 
   const handleShare = () => {
     const message = generateMessage();
-    const url = `https://wa.me/?text=${message}`;
+    const cleanPhone = lead.phone ? lead.phone.replace(/\D/g, '') : '';
+    const url = cleanPhone
+      ? `https://wa.me/${cleanPhone}?text=${message}`
+      : `https://wa.me/?text=${message}`;
     window.open(url, '_blank');
   };
 
@@ -84,7 +81,7 @@ const ShareBudgetWhatsAppButton: React.FC<ShareBudgetWhatsAppButtonProps> = ({
     <button
       onClick={handleShare}
       disabled={disabled}
-      className="flex items-center justify-center gap-2 px-6 py-3 bg-green-500 text-white font-bold rounded-xl shadow-lg shadow-green-200 hover:bg-green-600 transition-all disabled:bg-gray-300 disabled:shadow-none disabled:cursor-not-allowed"
+      className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:bg-gray-300 disabled:shadow-none disabled:cursor-not-allowed w-full sm:w-auto"
     >
       <MessageCircle size={20} />
       Compartir por WhatsApp

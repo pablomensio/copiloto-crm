@@ -13,8 +13,14 @@ interface PublicMenuViewProps {
 }
 
 const PublicMenuView: React.FC<PublicMenuViewProps> = ({ menu, vehicles, sellerProfile }) => {
-    const [showPrices, setShowPrices] = useState(menu.withPrice ?? true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const showPrices = menu.withPrice ?? true;
     const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+
+    // Filter vehicles based on search term
+    const filteredVehicles = vehicles.filter(v =>
+        `${v.make} ${v.model} ${v.year}`.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     if (selectedVehicle) {
         return (
@@ -40,22 +46,6 @@ const PublicMenuView: React.FC<PublicMenuViewProps> = ({ menu, vehicles, sellerP
                             {sellerProfile.companyName && <p className="text-[10px] text-indigo-600 font-medium">{sellerProfile.companyName}</p>}
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-2 bg-gray-100 rounded-full px-1 p-1">
-                            <button
-                                onClick={() => setShowPrices(true)}
-                                className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${showPrices ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}
-                            >
-                                Con Precios
-                            </button>
-                            <button
-                                onClick={() => setShowPrices(false)}
-                                className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${!showPrices ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}
-                            >
-                                Ocultar
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </header>
 
@@ -67,15 +57,28 @@ const PublicMenuView: React.FC<PublicMenuViewProps> = ({ menu, vehicles, sellerP
                 </p>
             </div>
 
+            {/* Search Bar */}
+            <div className="max-w-6xl mx-auto px-4 mb-6">
+                <div className="relative">
+                    <input
+                        type="text"
+                        placeholder="Buscar por marca, modelo o año..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-4 pr-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    />
+                </div>
+            </div>
+
             {/* Grid */}
             <div className="max-w-6xl mx-auto px-4">
-                {vehicles.length === 0 ? (
+                {filteredVehicles.length === 0 ? (
                     <div className="text-center py-10 text-gray-500">
-                        <p>Este menú no tiene vehículos disponibles actualmente.</p>
+                        <p>No se encontraron vehículos que coincidan con tu búsqueda.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {vehicles.map(v => (
+                        {filteredVehicles.map(v => (
                             <div
                                 key={v.id}
                                 onClick={() => setSelectedVehicle(v)}

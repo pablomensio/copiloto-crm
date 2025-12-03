@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Lead, CopilotResponse, Vehicle, BudgetCalculation } from '../types';
+import { Lead, CopilotResponse, Vehicle, BudgetCalculation, Interaction } from '../types';
 import { analyzeLead } from '../services/geminiService';
 import LeadCard from './LeadCard';
 import VehicleCard from './VehicleCard';
 import CopilotAction from './CopilotAction';
-import { Search, MessageSquare, DollarSign, Activity, Clock, MapPin, Plus, Calendar, FileText, Calculator, ArrowLeft } from 'lucide-react';
+import InteractionDetailModal from './InteractionDetailModal';
+import { Search, MessageSquare, DollarSign, Activity, Clock, MapPin, Plus, Calendar, FileText, Calculator, ArrowLeft, Edit, Car } from 'lucide-react';
 
 interface DashboardViewProps {
   leads: Lead[];
@@ -16,6 +17,9 @@ interface DashboardViewProps {
   onAddNote: (leadId: string) => void;
   onQuote: (lead: Lead, vehicle: Vehicle) => void;
   onOpenBudget: (lead: Lead, vehicle: Vehicle, budget: BudgetCalculation) => void;
+  onAddClient: () => void;
+  onEditClient: (lead: Lead) => void;
+  onAppraise: (lead: Lead) => void;
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({
@@ -27,13 +31,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   onAddTask,
   onAddNote,
   onQuote,
-  onOpenBudget
+  onOpenBudget,
+  onAddClient,
+  onEditClient,
+  onAppraise
 }) => {
   const [selectedLeadId, setSelectedLeadId] = useState<string>(leads[0]?.id || '');
   const [copilotResponse, setCopilotResponse] = useState<CopilotResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [fabOpen, setFabOpen] = useState(false);
+  const [selectedInteraction, setSelectedInteraction] = useState<Interaction | null>(null);
 
   // Mobile View State
   const [showMobileDetail, setShowMobileDetail] = useState(false);
@@ -71,7 +80,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     };
 
     runAnalysis();
-  }, [selectedLeadId, selectedLead, selectedVehicle, onLeadUpdate]);
+  }, [selectedLeadId, selectedLead, selectedVehicle, onLeadUpdate, refreshKey]);
+
+  const handleInteractionClick = (interaction: Interaction) => {
+    setSelectedInteraction(interaction);
+  };
+
+  const handleInteractionSave = (updatedInteraction: Interaction) => {
+    const updatedHistory = selectedLead.history.map(i =>
+      i.id === updatedInteraction.id ? updatedInteraction : i
+    );
+    onLeadUpdate({ ...selectedLead, history: updatedHistory });
+    setSelectedInteraction(null);
+  };
+
+  const handleInteractionDelete = (interactionId: string) => {
+    const updatedHistory = selectedLead.history.filter(i => i.id !== interactionId);
+    onLeadUpdate({ ...selectedLead, history: updatedHistory });
+    setSelectedInteraction(null);
+  };
+
+  const handleRefreshAnalysis = () => {
+    setRefreshKey(prev => prev + 1);
+  };
 
   const handleLeadClick = (id: string) => {
     setSelectedLeadId(id);
@@ -104,7 +135,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar for Leads */}
       <div className={`w-full md:w-80 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col h-full z-10 ${showMobileDetail ? 'hidden md:flex' : 'flex'}`}>
-        <div className="p-4 border-b border-gray-100">
+        <div className="p-4 border-b border-gray-100 space-y-3">
+          <div className="flex justify-between items-center px-1">
+            <h2 className="font-bold text-gray-700">Clientes</h2>
+            <button onClick={onAddClient} className="bg-indigo-50 text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-100 transition-colors" title="Nuevo Cliente">
+              <Plus size={18} />
+            </button>
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <input
@@ -148,7 +185,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 <span className={`absolute bottom-1 right-1 w-5 h-5 border-2 border-white rounded-full ${selectedLead.interestLevel === 'High' ? 'bg-green-500' : selectedLead.interestLevel === 'Medium' ? 'bg-yellow-500' : 'bg-gray-400'}`}></span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 leading-tight">{selectedLead.name}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-gray-900 leading-tight">{selectedLead.name}</h1>
+                  <button onClick={() => onEditClient(selectedLead)} className="text-gray-400 hover:text-indigo-600 transition-colors p-1 rounded-full hover:bg-gray-100">
+                    <Edit size={16} />
+                  </button>
+                </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2 text-sm text-gray-600">
                   <span className="flex items-center gap-1.5 bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
                     <DollarSign size={14} className="text-gray-500" />
@@ -200,7 +242,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 px-1">Actividad Reciente</h4>
                 <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4 shadow-sm max-h-[400px] overflow-y-auto custom-scrollbar">
                   {selectedLead.history.map((interaction) => (
-                    <div key={interaction.id} className="relative pl-4 pb-4 border-l-2 border-indigo-100 last:pb-0 last:border-l-0">
+                    <div
+                      key={interaction.id}
+                      onClick={() => handleInteractionClick(interaction)}
+                      className="relative pl-4 pb-4 border-l-2 border-indigo-100 last:pb-0 last:border-l-0 cursor-pointer hover:bg-gray-50 transition-colors rounded-r-lg"
+                    >
                       <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 ${interaction.type === 'budget' ? 'bg-green-100 border-green-500' : 'bg-indigo-50 border-indigo-200'
                         }`}></div>
                       <div className="flex flex-col gap-1 -mt-1">
@@ -273,7 +319,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               ) : (
                 <div className="transition-all duration-300 ease-in-out">
-                  <CopilotAction response={copilotResponse} loading={loading} />
+                  <CopilotAction response={copilotResponse} loading={loading} onRefresh={handleRefreshAnalysis} />
                 </div>
               )}
 
@@ -343,6 +389,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                   <Calendar size={18} />
                 </div>
               </button>
+              <button
+                onClick={() => { onAppraise(selectedLead); setFabOpen(false); }}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-full shadow-lg border border-gray-100 hover:bg-gray-50 transition-all animate-scaleIn"
+              >
+                <span className="text-sm font-medium">Tasar Usado</span>
+                <div className="bg-blue-100 p-2 rounded-full text-blue-600">
+                  <Car size={18} />
+                </div>
+              </button>
             </>
           )}
           <button
@@ -353,6 +408,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           </button>
         </div>
       </main>
+
+      {selectedInteraction && (
+        <InteractionDetailModal
+          interaction={selectedInteraction}
+          onClose={() => setSelectedInteraction(null)}
+          onSave={handleInteractionSave}
+          onDelete={handleInteractionDelete}
+        />
+      )}
     </div>
   );
 };

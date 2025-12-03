@@ -25,6 +25,7 @@ yarn-error.log*
 .env*.local
 .env
 .env.*
+.env.local
 
 # Firebase
 .firebase/
@@ -50,3 +51,7 @@ serviceAccountKey.*.json
 # Vite
 .vite/
 .vercel
+
+# Local Data
+/importer
+debug_fetch.*

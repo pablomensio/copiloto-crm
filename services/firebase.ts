@@ -2,16 +2,21 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs, getDoc, doc, setDoc, deleteDoc, writeBatch, updateDoc, increment } from "firebase/firestore";
 import { getAuth, signInWithEmailAndPassword, signOut as firebaseSignOut } from "firebase/auth";
-import { Vehicle, Lead, Task, Menu } from "../types";
+import { Vehicle, Lead, Task, Menu, MultiBudget } from "../types";
 
 import firebaseConfig from "../firebaseConfig";
 
 // Check if credentials are still placeholders
 const isConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "TU_API_KEY_AQUI" && firebaseConfig.projectId !== "TU_PROYECTO_ID";
 
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getMessaging } from "firebase/messaging";
+
 let app;
 let db: any;
 let auth: any;
+let messaging: any;
+let storage: any;
 
 // Only initialize if configured to avoid "Permission denied" errors on placeholder project
 if (isConfigured) {
@@ -19,12 +24,22 @@ if (isConfigured) {
     app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
+    messaging = getMessaging(app);
+    storage = getStorage(app);
   } catch (error) {
     console.error("Error initializing Firebase:", error);
   }
 }
 
-export { auth };
+export { auth, db, messaging, storage };
+
+export const uploadVehicleImage = async (file: File): Promise<string> => {
+  if (!storage) throw new Error("Storage not initialized");
+
+  const storageRef = ref(storage, `vehicles/${Date.now()}_${file.name}`);
+  const snapshot = await uploadBytes(storageRef, file);
+  return getDownloadURL(snapshot.ref);
+};
 
 export const signIn = async (email, password) => {
   if (!auth) throw new Error("Auth not initialized");
@@ -41,6 +56,7 @@ const VEHICLES_COLLECTION = "vehicles";
 const LEADS_COLLECTION = "leads";
 const TASKS_COLLECTION = "tasks";
 const MENUS_COLLECTION = "menus";
+const MULTI_BUDGETS_COLLECTION = "multi_budgets";
 
 const checkDb = () => {
   if (!db) throw new Error("Firebase no está configurado. Edita services/firebase.ts con tus credenciales.");
@@ -269,4 +285,109 @@ export const seedInitialData = async (
 
   await batch.commit();
   console.log("Seeding complete.");
+};
+
+export const trackBudgetView = async (leadId: string, interactionId: string): Promise<Lead | null> => {
+  checkDb();
+  try {
+    const leadRef = doc(db, LEADS_COLLECTION, leadId);
+    const leadSnap = await getDoc(leadRef);
+
+    if (leadSnap.exists()) {
+      const lead = leadSnap.data() as Lead;
+      const updatedHistory = lead.history.map(interaction => {
+        if (interaction.id === interactionId) {
+          return {
+            ...interaction,
+            viewCount: (interaction.viewCount || 0) + 1,
+            lastViewedAt: new Date().toISOString()
+          };
+        }
+        return interaction;
+      });
+
+      const updatedLead = { ...lead, history: updatedHistory };
+      await setDoc(leadRef, updatedLead);
+      return updatedLead;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error tracking budget view:", error);
+    return null;
+  }
+};
+
+/**
+ * Multi-Budget Functions
+ */
+
+/**
+ * Save a multi-vehicle budget comparison
+ */
+export const saveMultiBudget = async (multiBudget: MultiBudget): Promise<string> => {
+  checkDb();
+  try {
+    await setDoc(doc(db, MULTI_BUDGETS_COLLECTION, multiBudget.id), multiBudget);
+    return multiBudget.id;
+  } catch (error) {
+    console.error("Error saving multi-budget:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get a multi-budget by ID
+ */
+export const getMultiBudget = async (id: string): Promise<MultiBudget | null> => {
+  checkDb();
+  try {
+    const docRef = doc(db, MULTI_BUDGETS_COLLECTION, id);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as MultiBudget;
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error("Error fetching multi-budget:", error);
+    throw error;
+  }
+};
+
+/**
+ * Track multi-budget view (increment viewCount)
+ */
+export const trackMultiBudgetView = async (budgetId: string): Promise<void> => {
+  checkDb();
+  try {
+    const budgetRef = doc(db, MULTI_BUDGETS_COLLECTION, budgetId);
+    await updateDoc(budgetRef, {
+      viewCount: increment(1),
+      lastViewedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error tracking multi-budget view:", error);
+    // Non-critical error, don't throw
+  }
+};
+
+/**
+ * Get all multi-budgets for a specific lead
+ */
+export const getLeadMultiBudgets = async (leadId: string): Promise<MultiBudget[]> => {
+  checkDb();
+  try {
+    const querySnapshot = await getDocs(collection(db, MULTI_BUDGETS_COLLECTION));
+    const budgets: MultiBudget[] = [];
+    querySnapshot.forEach((doc) => {
+      const budget = doc.data() as MultiBudget;
+      if (budget.leadId === leadId) {
+        budgets.push(budget);
+      }
+    });
+    return budgets.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  } catch (error) {
+    console.error("Error fetching lead multi-budgets:", error);
+    throw error;
+  }
 };

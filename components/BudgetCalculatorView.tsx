@@ -1,14 +1,16 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import ShareBudgetWhatsAppButton from './ShareBudgetWhatsAppButton';
 import { Vehicle, Lead, BudgetCalculation } from '../types';
-import { ArrowLeft, Save, User, Car, Calculator, FileText } from 'lucide-react';
+import { ArrowLeft, Save, User, Car, Calculator, FileText, Copy, Check } from 'lucide-react';
 
 interface BudgetCalculatorViewProps {
     initialVehicle?: Vehicle | null;
     initialLead?: Lead | null;
     initialBudget?: BudgetCalculation | null;
     onBack?: () => void;
-    onSaveQuote?: (budget: BudgetCalculation) => void;
+    onSaveQuote?: (budget: BudgetCalculation) => Promise<string | null | void> | void;
+    readOnly?: boolean;
 }
 
 function formatCurrency(value: number): string {
@@ -25,13 +27,15 @@ const BudgetCalculatorView: React.FC<BudgetCalculatorViewProps> = ({
     initialLead,
     initialBudget,
     onBack,
-    onSaveQuote
+    onSaveQuote,
+    readOnly = false
 }) => {
     const [aCubrir, setACubrir] = useState({
         valorVehiculo: initialBudget?.items?.valorVehiculo ?? (initialVehicle ? initialVehicle.price : 0),
         transferencia: initialBudget?.items?.transferencia ?? 0,
         costoOtorgamiento: initialBudget?.items?.costoOtorgamiento ?? 0,
     });
+    const [copied, setCopied] = useState(false);
 
     const [comoSeCubre, setComoSeCubre] = useState({
         autoUsado: initialBudget?.items?.autoUsado ?? 0,
@@ -91,6 +95,41 @@ const BudgetCalculatorView: React.FC<BudgetCalculatorViewProps> = ({
             };
             onSaveQuote(budgetData);
         }
+    };
+
+    const handleCopy = () => {
+        let message = "Hola, te comparto el presupuesto detallado:\n\n";
+        message += "DETALLE A CUBRIR:\n";
+        message += `- Valor del Vehículo: ${formatCurrency(aCubrir.valorVehiculo)}\n`;
+        message += `- Transferencia: ${formatCurrency(aCubrir.transferencia)}\n`;
+        if (aCubrir.costoOtorgamiento > 0) {
+            message += `- Costo de Otorgamiento: ${formatCurrency(aCubrir.costoOtorgamiento)}\n`;
+        }
+        message += `*TOTAL A CUBRIR: ${formatCurrency(totalACubrir)}*\n\n`;
+
+        message += "DETALLE DE TU ENTREGA:\n";
+        if (comoSeCubre.autoUsado > 0) {
+            message += `- Auto Usado: ${formatCurrency(comoSeCubre.autoUsado)}\n`;
+        }
+        if (comoSeCubre.pesos > 0) {
+            message += `- Pesos: ${formatCurrency(comoSeCubre.pesos)}\n`;
+        }
+        if (comoSeCubre.sena > 0) {
+            message += `- Seña: ${formatCurrency(comoSeCubre.sena)}\n`;
+        }
+        if (comoSeCubre.credito > 0) {
+            message += `- Crédito: ${formatCurrency(comoSeCubre.credito)}\n`;
+        }
+        message += `*TOTAL ENTREGADO: ${formatCurrency(totalComoSeCubre)}*\n\n`;
+
+        message += "----------------------------\n";
+        message += `*DIFERENCIA: ${formatCurrency(diferencia)}*\n`;
+        message += "----------------------------\n\n";
+        message += "¡Quedo a tu disposición para cualquier consulta!";
+
+        navigator.clipboard.writeText(message);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
     const isButtonDisabled = totalACubrir === 0 && totalComoSeCubre === 0;
@@ -223,9 +262,9 @@ const BudgetCalculatorView: React.FC<BudgetCalculatorViewProps> = ({
             </div>
 
             <div className="my-8">
-                <div className={`rounded-xl shadow-md border-2 p-6 flex flex-row items-center justify-between transition-colors duration-500 ${diferencia === 0 ? 'bg-green-50 border-green-200' :
-                        diferencia > 0 ? 'bg-white border-gray-200' : 'bg-red-50 border-red-200'
-                    }`}>
+                <div className={`rounded - xl shadow - md border - 2 p - 6 flex flex - row items - center justify - between transition - colors duration - 500 ${diferencia === 0 ? 'bg-green-50 border-green-200' :
+                    diferencia > 0 ? 'bg-white border-gray-200' : 'bg-red-50 border-red-200'
+                    } `}>
                     <div>
                         <h3 className="text-xl font-bold text-gray-800">Saldo a Cubrir</h3>
                         <p className="text-sm text-gray-500">
@@ -234,34 +273,79 @@ const BudgetCalculatorView: React.FC<BudgetCalculatorViewProps> = ({
                                     'El cliente está entregando de más.'}
                         </p>
                     </div>
-                    <span className={`text-3xl font-extrabold tracking-tight ${diferencia > 0 ? 'text-gray-900' : diferencia === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <span className={`text - 3xl font - extrabold tracking - tight ${diferencia > 0 ? 'text-gray-900' : diferencia === 0 ? 'text-green-600' : 'text-red-600'} `}>
                         {formatCurrency(diferencia)}
                     </span>
                 </div>
             </div>
 
-            {/* Action Footer */}
-            <div className="flex flex-col md:flex-row justify-end gap-4 mt-8 pt-8 border-t border-gray-200">
-                {onSaveQuote && initialLead && (
+            {/* Actions Footer */}
+            {!readOnly && (
+                <div className="bg-white border-t border-gray-200 p-4 flex flex-col sm:flex-row justify-end gap-3 sticky bottom-0 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
                     <button
-                        onClick={handleSave}
-                        disabled={totalACubrir === 0}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-indigo-600 text-indigo-700 font-bold rounded-xl hover:bg-indigo-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={handleCopy}
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors shadow-sm"
+                        disabled={isButtonDisabled}
                     >
-                        <Save size={20} />
-                        Guardar en Historial
+                        {copied ? <Check size={20} /> : <Copy size={20} />}
+                        {copied ? 'Copiado' : 'Copiar Texto'}
                     </button>
-                )}
-                <ShareBudgetWhatsAppButton
-                    aCubrir={aCubrir}
-                    comoSeCubre={comoSeCubre}
-                    diferencia={diferencia}
-                    totalACubrir={totalACubrir}
-                    totalComoSeCubre={totalComoSeCubre}
-                    disabled={isButtonDisabled}
-                />
-            </div>
-        </div>
+
+                    {onSaveQuote && initialLead && (
+                        <button
+                            onClick={handleSave}
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-indigo-600 text-indigo-600 rounded-xl font-bold hover:bg-indigo-50 transition-colors shadow-sm"
+                            disabled={totalACubrir === 0}
+                        >
+                            <Save size={20} />
+                            Guardar Presupuesto
+                        </button>
+                    )}
+
+                    <div className="flex-1 sm:flex-none">
+                        <ShareBudgetWhatsAppButton
+                            lead={initialLead || { name: 'Cliente' } as Lead}
+                            vehicle={initialVehicle || { make: 'Vehículo', model: '', year: 2024, price: 0 } as Vehicle}
+                            budget={{
+                                totalACubrir,
+                                totalEntregado: totalComoSeCubre,
+                                diferencia,
+                                items: {
+                                    valorVehiculo: aCubrir.valorVehiculo,
+                                    transferencia: aCubrir.transferencia,
+                                    costoOtorgamiento: aCubrir.costoOtorgamiento,
+                                    autoUsado: comoSeCubre.autoUsado,
+                                    pesos: comoSeCubre.pesos,
+                                    sena: comoSeCubre.sena,
+                                    credito: comoSeCubre.credito
+                                }
+                            }}
+                            onBeforeShare={async () => {
+                                if (onSaveQuote && initialLead) {
+                                    // Save and get ID
+                                    const budgetData: BudgetCalculation = {
+                                        totalACubrir,
+                                        totalEntregado: totalComoSeCubre,
+                                        diferencia,
+                                        items: { ...aCubrir, ...comoSeCubre }
+                                    };
+                                    // We need onSaveQuote to return the ID. 
+                                    // Since we updated App.tsx, we cast it here or assume it returns Promise<string | null>
+                                    // Note: Types might need update if onSaveQuote signature changed in App.tsx but not in props interface
+                                    const interactionId = await onSaveQuote(budgetData);
+
+                                    if (interactionId && typeof interactionId === 'string') {
+                                        return `${window.location.origin}/?view_budget=true&leadId=${initialLead.id}&interactionId=${interactionId}`;
+                                    }
+                                }
+                                return null;
+                            }}
+                            disabled={isButtonDisabled}
+                        />
+                    </div >
+                </div >
+            )}
+        </div >
     );
 };
 

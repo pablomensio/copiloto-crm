@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { CopilotResponse, UrgencyLevel } from '../types';
-import { MessageSquare, Phone, Mail, AlertCircle, Copy, Check } from 'lucide-react';
+import { MessageSquare, Phone, Mail, AlertCircle, Copy, Check, RotateCw } from 'lucide-react';
 
 interface CopilotActionProps {
   response: CopilotResponse | null;
   loading: boolean;
+  onRefresh?: () => void;
 }
 
-const CopilotAction: React.FC<CopilotActionProps> = ({ response, loading }) => {
+const CopilotAction: React.FC<CopilotActionProps> = ({ response, loading, onRefresh }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -17,7 +18,7 @@ const CopilotAction: React.FC<CopilotActionProps> = ({ response, loading }) => {
       setTimeout(() => setCopied(false), 2000);
     }
   };
-  
+
   // Initial loading state when there is no response data at all
   if (loading && !response) {
     return (
@@ -63,7 +64,7 @@ const CopilotAction: React.FC<CopilotActionProps> = ({ response, loading }) => {
       {/* --- Loading Overlay --- */}
       {loading && (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center transition-opacity duration-300">
-           <svg className="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <svg className="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
@@ -72,13 +73,18 @@ const CopilotAction: React.FC<CopilotActionProps> = ({ response, loading }) => {
       )}
 
       <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
-      
+
       <div className="p-6">
         {/* Header Section */}
         <div className="flex justify-between items-start mb-6">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs font-bold tracking-wider text-indigo-600 uppercase">Copilot Analysis</span>
+              {onRefresh && (
+                <button onClick={onRefresh} className="text-indigo-400 hover:text-indigo-600 transition-colors" title="Actualizar Análisis">
+                  <RotateCw size={12} />
+                </button>
+              )}
             </div>
             <h2 className="text-xl font-bold text-gray-900">{response.accion_sugerida}</h2>
           </div>
@@ -101,7 +107,7 @@ const CopilotAction: React.FC<CopilotActionProps> = ({ response, loading }) => {
         <div>
           <div className="flex justify-between items-center mb-2">
             <label className="text-xs font-semibold text-gray-500 uppercase">Borrador Sugerido</label>
-            <button 
+            <button
               onClick={handleCopy}
               className="text-indigo-600 hover:text-indigo-800 text-xs font-medium flex items-center gap-1 transition-colors"
             >

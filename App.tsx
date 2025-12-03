@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AppView, Lead, SellerProfile, Vehicle, Task, Interaction, BudgetCalculation, Menu } from './types';
+import { AppView, Lead, SellerProfile, Vehicle, Task, Interaction, BudgetCalculation, Menu, MultiBudget, TradeInAppraisal } from './types';
 import { INITIAL_VEHICLES, LEADS as INITIAL_LEADS, INITIAL_TASKS } from './constants';
 import DashboardView from './components/DashboardView';
 import InventoryView from './components/InventoryView';
@@ -19,8 +19,14 @@ import PublicMenuView from './components/PublicMenuView';
 import PublicVehicleDetail from './components/PublicVehicleDetail';
 import LoginView from './components/LoginView';
 import LeadSelectorModal from './components/LeadSelectorModal';
+import AddClientModal from './components/AddClientModal';
+import MultiBudgetSelector from './components/MultiBudgetSelector';
+import MultiBudgetModal from './components/MultiBudgetModal';
+import PublicMultiBudgetView from './components/PublicMultiBudgetView';
+import TradeInAppraisalModal from './components/TradeInAppraisalModal';
 import { Zap, LayoutDashboard, Car, Menu as MenuIcon, X, Edit, Calculator, TrendingUp, Database, AlertTriangle, Calendar as CalendarIcon, CheckSquare, LogOut } from 'lucide-react';
-import { fetchVehicles, fetchLeads, fetchTasks, fetchMenus, saveVehicle, saveLead, saveVehiclesBatch, saveTask, saveMenu, incrementMenuView, seedInitialData, getMenu, auth, signOut, deleteVehicle } from './services/firebase';
+import { fetchVehicles, fetchLeads, fetchTasks, fetchMenus, saveVehicle, saveLead, saveVehiclesBatch, saveTask, saveMenu, incrementMenuView, seedInitialData, getMenu, auth, signOut, deleteVehicle, trackBudgetView, saveMultiBudget, getMultiBudget, trackMultiBudgetView } from './services/firebase';
+import { saveAppraisal } from './services/appraisalService';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
 const App: React.FC = () => {
@@ -61,6 +67,18 @@ const App: React.FC = () => {
   const [isAddTaskModalOpen, setAddTaskModalOpen] = useState(false);
   const [isAddHistoryModalOpen, setAddHistoryModalOpen] = useState(false);
   const [isLeadSelectorOpen, setLeadSelectorOpen] = useState(false);
+  const [isAddClientModalOpen, setAddClientModalOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | undefined>(undefined);
+
+  // Multi-Budget State
+  const [isMultiBudgetSelectorOpen, setMultiBudgetSelectorOpen] = useState(false);
+  const [isMultiBudgetModalOpen, setMultiBudgetModalOpen] = useState(false);
+  const [selectedVehiclesForBudget, setSelectedVehiclesForBudget] = useState<Vehicle[]>([]);
+  const [currentMultiBudget, setCurrentMultiBudget] = useState<MultiBudget | null>(null);
+
+  // Appraisal State
+  const [isAppraisalModalOpen, setAppraisalModalOpen] = useState(false);
+  const [appraisalTargetLead, setAppraisalTargetLead] = useState<Lead | null>(null);
 
   // Tracking which lead is being acted upon (for tasks/notes)
   const [targetLeadId, setTargetLeadId] = useState<string | undefined>(undefined);
@@ -70,15 +88,98 @@ const App: React.FC = () => {
 
   // Initial Data Fetching from Firebase and URL Param Check
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      // Always check for public URL params first
+      const params = new URLSearchParams(window.location.search);
+      const menuId = params.get('menu');
+      const vehicleId = params.get('vehicle');
+
+      let isPublicView = false;
+
+      if (menuId) {
+        try {
+          const menuData = await getMenu(menuId);
+          if (menuData) {
+            setPublicMenu(menuData);
+            setCurrentView('public_menu');
+            isPublicView = true;
+            // Fetch vehicles for this menu
+            const vehiclesData = await fetchVehicles();
+            setVehicles(vehiclesData);
+          }
+        } catch (e) {
+          console.error("Error loading public menu", e);
+        }
+      } else if (vehicleId) {
+        setSelectedVehicleId(vehicleId);
+        setCurrentView('public_vehicle');
+        isPublicView = true;
+        // Fetch all vehicles to find the selected one
+        try {
+          const vehiclesData = await fetchVehicles();
+          setVehicles(vehiclesData);
+        } catch (e) {
+          console.error("Error loading public vehicle", e);
+        }
+      } else if (params.get('view_budget') === 'true') {
+        const leadId = params.get('leadId');
+        const interactionId = params.get('interactionId');
+
+        if (leadId && interactionId) {
+          isPublicView = true;
+          setCurrentView('public_budget');
+          try {
+            // Track view and get updated lead data
+            const updatedLead = await trackBudgetView(leadId, interactionId);
+            if (updatedLead) {
+              const interaction = updatedLead.history.find(i => i.id === interactionId);
+              if (interaction && interaction.budget) {
+                // Fetch vehicles to get the vehicle details
+                const vehiclesData = await fetchVehicles();
+                setVehicles(vehiclesData);
+
+                const vehicle = vehiclesData[updatedLead.interestedVehicleId];
+
+                setQuoteContext({
+                  lead: updatedLead,
+                  vehicle: vehicle || null,
+                  budget: interaction.budget
+                });
+              }
+            }
+          } catch (e) {
+            console.error("Error tracking budget view", e);
+          }
+        }
+      } else if (params.get('multi_budget')) {
+        const multiBudgetId = params.get('multi_budget');
+        if (multiBudgetId) {
+          isPublicView = true;
+          setCurrentView('multi_budget');
+          try {
+            const budgetData = await getMultiBudget(multiBudgetId);
+            if (budgetData) {
+              setCurrentMultiBudget(budgetData);
+              // Fetch vehicles
+              const vehiclesData = await fetchVehicles();
+              setVehicles(vehiclesData);
+            }
+          } catch (e) {
+            console.error("Error loading multi-budget", e);
+          }
+        }
+      }
+
       if (user) {
         setCurrentUser(user);
-        setAuthLoading(false);
-      } else {
-        setAuthLoading(false);
-        // If public view, we might not need auth, but for now let's allow loading to finish
-        setIsLoadingData(false);
+        // Only set default view if NOT a public view
+        if (!isPublicView) {
+          // Stay on dashboard or whatever default
+        }
       }
+
+      setAuthLoading(false);
+      setIsLoadingData(false);
     });
     return () => unsubscribe();
   }, []);
@@ -123,6 +224,25 @@ const App: React.FC = () => {
       await saveLead(updatedLead);
     } catch (e) {
       // Silent fail in offline mode
+    }
+  };
+
+  const handleAddLead = async (newLead: Lead) => {
+    // Optimistic Update
+    setLeads(prev => {
+      const exists = prev.find(l => l.id === newLead.id);
+      if (exists) {
+        return prev.map(l => l.id === newLead.id ? newLead : l);
+      }
+      return [newLead, ...prev];
+    });
+    setAddClientModalOpen(false);
+    setEditingLead(undefined);
+
+    try {
+      await saveLead(newLead);
+    } catch (e) {
+      // Silent fail
     }
   };
 
@@ -280,6 +400,120 @@ const App: React.FC = () => {
       // If successful, navigate back
       setCurrentView('dashboard');
       setQuoteContext({ lead: null, vehicle: null, budget: null });
+      return newInteraction.id;
+    }
+    return null;
+  };
+
+  // Multi-Budget Handlers
+  const handleOpenMultiBudgetSelector = () => {
+    setMultiBudgetSelectorOpen(true);
+  };
+
+  const handleCreateMultiBudget = (selectedVehicleIds: string[]) => {
+    const selectedVehicles = selectedVehicleIds.map(id => vehicles[id]).filter(Boolean);
+    setSelectedVehiclesForBudget(selectedVehicles);
+    setMultiBudgetSelectorOpen(false);
+    setMultiBudgetModalOpen(true);
+  };
+
+  const handleSaveMultiBudget = async (budgets: Array<{ vehicleId: string; budget: BudgetCalculation }>) => {
+    if (!quoteContext.lead) {
+      alert("Selecciona un cliente primero");
+      return;
+    }
+
+    const multiBudget: MultiBudget = {
+      id: `mb_${Date.now()}`,
+      leadId: quoteContext.lead.id,
+      leadName: quoteContext.lead.name,
+      vehicles: budgets,
+      createdAt: new Date().toISOString(),
+      viewCount: 0,
+      sharedVia: 'link'
+    };
+
+    try {
+      await saveMultiBudget(multiBudget);
+
+      // Generate shareable link
+      const shareUrl = `${window.location.origin}/?multi_budget=${multiBudget.id}`;
+
+      // Copy to clipboard
+      navigator.clipboard.writeText(shareUrl);
+      alert(`¡Presupuesto creado! Link copiado al portapapeles:\n${shareUrl}`);
+
+      setMultiBudgetModalOpen(false);
+      setSelectedVehiclesForBudget([]);
+    } catch (error) {
+      console.error("Error saving multi-budget:", error);
+      alert("Error al guardar el presupuesto");
+    }
+  };
+
+  const handleTrackMultiBudgetView = async () => {
+    if (currentMultiBudget) {
+      await trackMultiBudgetView(currentMultiBudget.id);
+    }
+  };
+
+  // Appraisal Handlers
+  const handleOpenAppraisal = (lead: Lead) => {
+    setAppraisalTargetLead(lead);
+    setAppraisalModalOpen(true);
+  };
+
+  const handleSaveAppraisal = async (appraisal: TradeInAppraisal) => {
+    if (!appraisalTargetLead) return;
+
+    try {
+      // Save to Firestore using the service (which we imported from firebase.ts but need to export there or import from appraisalService)
+      // Wait, I imported saveAppraisal from firebase.ts but I created it in appraisalService.ts
+      // I need to fix the import or re-export it. For now, let's assume I'll fix the import.
+      // Actually, I should import it from appraisalService.ts directly.
+
+      // Update Lead History
+      const newInteraction: Interaction = {
+        id: `appraisal_${Date.now()}`,
+        type: 'appraisal',
+        date: new Date().toISOString(),
+        details: `Tasación: ${appraisal.vehicleData.make} ${appraisal.vehicleData.model}`,
+        appraisal: appraisal,
+        status: 'sent'
+      };
+
+      const updatedLead = {
+        ...appraisalTargetLead,
+        history: [newInteraction, ...appraisalTargetLead.history]
+      };
+
+      await handleLeadUpdate(updatedLead);
+
+      // Also save the appraisal document itself (handled inside TradeInAppraisalModal via onSave prop? No, modal calls onSave which is this function)
+      // The modal calls saveAppraisal service internally? 
+      // Let's check TradeInAppraisalModal.tsx:
+      // It calls `await onSave(newAppraisal);` inside `handleSave`.
+      // And it ALSO calls `saveAppraisal` service? No, it imports it but doesn't seem to use it for the main save if onSave is provided?
+      // Wait, in TradeInAppraisalModal.tsx:
+      // `await onSave(newAppraisal);` is called.
+      // AND `saveAppraisal` is imported but NOT USED in `handleSave`?
+      // Let me re-read TradeInAppraisalModal.tsx content I wrote.
+
+      // I wrote:
+      // const handleSave = async () => { ...
+      //   // 3. Save Appraisal
+      //   await onSave(newAppraisal);
+      // ... }
+
+      // So the Modal expects the parent to handle the saving.
+      // But I also imported `saveAppraisal` in the Modal. I probably meant to use it there or here.
+      // Better to use it HERE in App.tsx to keep logic centralized or in the service.
+      // I will import `saveAppraisal` from `./services/appraisalService` in App.tsx.
+
+      // Let's fix the import in the first chunk and then use it here.
+    } catch (error) {
+      console.error("Error saving appraisal:", error);
+      alert("Error al guardar la tasación");
     }
   };
 
@@ -388,6 +622,9 @@ const App: React.FC = () => {
             onAddNote={openAddHistoryModal}
             onQuote={handleStartQuote}
             onOpenBudget={handleOpenBudget}
+            onAddClient={() => { setEditingLead(undefined); setAddClientModalOpen(true); }}
+            onEditClient={(lead) => { setEditingLead(lead); setAddClientModalOpen(true); }}
+            onAppraise={handleOpenAppraisal}
           />
         );
       case 'inventory':
@@ -397,6 +634,7 @@ const App: React.FC = () => {
             onVehicleSelect={navigateToVehicleDetail}
             onAddVehicleClick={() => { setEditingVehicle(undefined); setAddVehicleModalOpen(true); }}
             onBulkUploadClick={() => setBulkUploadModalOpen(true)}
+            onCreateMultiBudget={handleOpenMultiBudgetSelector}
             markup={markup}
           />
         );
@@ -469,30 +707,28 @@ const App: React.FC = () => {
             showPrice={true}
           />
         );
-      default:
+      case 'multi_budget':
+        if (!currentMultiBudget) return <div>Presupuesto no encontrado</div>;
+        const budgetVehicles = currentMultiBudget.vehicles
+          .map(item => vehicles[item.vehicleId])
+          .filter(Boolean);
         return (
-          <DashboardView
-            leads={leads}
-            vehicles={vehicles}
-            onLeadUpdate={handleLeadUpdate}
-            onVehicleClick={navigateToVehicleDetail}
-            markup={markup}
-            onAddTask={openAddTaskModal}
-            onAddNote={openAddHistoryModal}
-            onQuote={handleStartQuote}
-            onOpenBudget={handleOpenBudget}
+          <PublicMultiBudgetView
+            multiBudget={currentMultiBudget}
+            vehicles={budgetVehicles}
+            onTrackView={handleTrackMultiBudgetView}
           />
         );
     }
   };
 
   // If in Public Menu Mode, render simplified layout without Sidebar
-  if (currentView === 'public_menu' || currentView === 'public_vehicle') {
+  if (currentView === 'public_menu' || currentView === 'public_vehicle' || currentView === 'multi_budget') {
     return renderContent();
   }
 
   // If not logged in and not loading, show Login View
-  if (!currentUser && !authLoading) {
+  if (!currentUser && !authLoading && (currentView as string) !== 'public_menu' && (currentView as string) !== 'public_vehicle') {
     return <LoginView onLoginSuccess={() => { }} />;
   }
 
@@ -725,6 +961,48 @@ const App: React.FC = () => {
           leads={leads}
           onSelect={handleLeadSelectForVehicle}
           onClose={() => setLeadSelectorOpen(false)}
+        />
+      )}
+
+      {/* Add Client Modal */}
+      {isAddClientModalOpen && (
+        <AddClientModal
+          onSave={handleAddLead}
+          onClose={() => setAddClientModalOpen(false)}
+          initialLead={editingLead}
+        />
+      )}
+
+      {/* Multi-Budget Selector */}
+      {isMultiBudgetSelectorOpen && (
+        <MultiBudgetSelector
+          vehicles={vehicles}
+          onCreateMultiBudget={handleCreateMultiBudget}
+          onCancel={() => setMultiBudgetSelectorOpen(false)}
+        />
+      )}
+
+      {/* Multi-Budget Modal */}
+      {isMultiBudgetModalOpen && (
+        <MultiBudgetModal
+          selectedVehicles={selectedVehiclesForBudget}
+          lead={quoteContext.lead}
+          onSave={handleSaveMultiBudget}
+          onCancel={() => setMultiBudgetModalOpen(false)}
+        />
+      )}
+      {isAppraisalModalOpen && appraisalTargetLead && (
+        <TradeInAppraisalModal
+          lead={appraisalTargetLead}
+          sellerProfile={sellerProfile}
+          onSave={async (appraisal) => {
+            // We need to save the appraisal to the 'appraisals' collection AND update the lead.
+            // I'll do both here.
+            const { saveAppraisal } = await import('./services/appraisalService');
+            await saveAppraisal(appraisal);
+            await handleSaveAppraisal(appraisal);
+          }}
+          onClose={() => setAppraisalModalOpen(false)}
         />
       )}
     </div>

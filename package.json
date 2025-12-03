@@ -6,17 +6,19 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "postbuild": "copy dist\\index.html functions\\index.html",
+    "postbuild": "copy dist\\index.html functions\\index.html && del dist\\index.html",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "import": "node scripts/import_vehicles.js"
+    "import": "node scripts/import_vehicles.js",
+    "clean:cars": "node scripts/clean_vehicles.js"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
     "dotenv": "^16.4.5",
     "firebase": "^12.6.0",
     "firebase-admin": "^13.6.0",
+    "jspdf": "^3.0.4",
     "lucide-react": "^0.554.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

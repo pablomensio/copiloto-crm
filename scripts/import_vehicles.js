@@ -9,17 +9,17 @@ const BUCKET_NAME = 'copiloto-crm-1764216245.firebasestorage.app';
 // --- FIN CONFIGURACIÓN ---
 
 const require = createRequire(import.meta.url);
-const serviceAccountPath = path.resolve(process.cwd(), 'serviceAccountKey.json');
+const serviceAccountPath = path.resolve(process.cwd(), 'serviceAccountKey.prod.json');
 
 try {
-  const serviceAccount = require(serviceAccountPath);
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    storageBucket: BUCKET_NAME,
-  });
+    const serviceAccount = require(serviceAccountPath);
+    admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        storageBucket: BUCKET_NAME,
+    });
 } catch (error) {
-  console.error('\n[ERROR] No se pudo encontrar o leer el archivo `serviceAccountKey.json`.');
-  process.exit(1);
+    console.error('\n[ERROR] No se pudo encontrar o leer el archivo `serviceAccountKey.json`.');
+    process.exit(1);
 }
 
 const db = admin.firestore();
@@ -40,7 +40,7 @@ const getMimeType = (filePath) => {
 
 async function main() {
     console.log('--- Iniciando Proceso de Importación (Versión Tokenizada) ---');
-    
+
     // Check directory
     try { await fs.access(IMPORTER_DIR); } catch {
         console.warn(`[!] Directorio 'importer' no encontrado.`); return;
@@ -63,7 +63,7 @@ async function main() {
             // Parsing
             const parts = folder.name.split('-');
             if (parts.length < 5) throw new Error(`Nombre inválido.`);
-            
+
             const make = parts[0];
             const model = parts.slice(1, parts.length - 4).join('-');
             const year = parseInt(parts[parts.length - 4], 10);
@@ -75,12 +75,12 @@ async function main() {
 
             // Description
             let description = 'Vehículo importado.';
-            try { description = await fs.readFile(path.join(folderPath, 'descripcion.txt'), 'utf-8'); } catch {}
+            try { description = await fs.readFile(path.join(folderPath, 'descripcion.txt'), 'utf-8'); } catch { }
 
             // Images
             const filesInFolder = await fs.readdir(folderPath);
             const imageFiles = filesInFolder.filter(file => ALLOWED_IMAGE_EXTENSIONS.includes(path.extname(file).toLowerCase()));
-            
+
             if (imageFiles.length === 0) throw new Error(`Carpeta sin imágenes.`);
 
             const imageUrls = [];
@@ -88,7 +88,7 @@ async function main() {
                 const imagePath = path.join(folderPath, imageFile);
                 const destination = `vehicles/${uuidv4()}-${imageFile}`;
                 const token = uuidv4(); // Create a download token
-                
+
                 // Upload with token metadata
                 await bucket.upload(imagePath, {
                     destination: destination,
@@ -116,7 +116,7 @@ async function main() {
                 fuelType: 'Gasolina',
                 _depositId: depositId,
                 _importedAt: new Date().toISOString(),
-                _allImages: imageUrls,
+                imageUrls: imageUrls,
             };
 
             await db.collection('vehicles').doc(newVehicle.id).set(newVehicle);

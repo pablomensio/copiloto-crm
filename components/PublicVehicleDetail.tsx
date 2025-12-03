@@ -43,78 +43,88 @@ const PublicVehicleDetail: React.FC<PublicVehicleDetailProps> = ({ vehicle, sell
             )}
           </div>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Info Principal */}
-          <div className="md:col-span-2 space-y-6">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">{vehicle.make} {vehicle.model}</h1>
-              <div className="flex flex-wrap gap-4 text-gray-600 mb-6">
-                <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                  <Calendar size={18} className="text-indigo-500" />
-                  <span className="font-medium">{vehicle.year}</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                  <Gauge size={18} className="text-indigo-500" />
-                  <span className="font-medium">{vehicle.mileage.toLocaleString()} km</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                  <Cog size={18} className="text-indigo-500" />
-                  <span className="font-medium">{vehicle.transmission}</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                  <Fuel size={18} className="text-indigo-500" />
-                  <span className="font-medium">{vehicle.fuelType}</span>
-                </div>
+        {/* Gallery Thumbnails */}
+        {(vehicle.imageUrls && vehicle.imageUrls.length > 1) && (
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 p-4 bg-gray-50 border-t border-gray-100">
+            {vehicle.imageUrls.map((img, i) => (
+              <div key={i} className="aspect-square rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:border-indigo-500 transition-colors">
+                <img src={img} alt={`View ${i + 1}`} className="w-full h-full object-cover" />
               </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-              <div className="prose prose-indigo max-w-none text-gray-600">
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Descripción</h3>
-                <p className="whitespace-pre-line leading-relaxed">{vehicle.description}</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Info Principal */}
+        <div className="md:col-span-2 space-y-6">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">{vehicle.make} {vehicle.model}</h1>
+            <div className="flex flex-wrap gap-4 text-gray-600 mb-6">
+              <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                <Calendar size={18} className="text-indigo-500" />
+                <span className="font-medium">{vehicle.year}</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                <Gauge size={18} className="text-indigo-500" />
+                <span className="font-medium">{vehicle.mileage.toLocaleString()} km</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                <Cog size={18} className="text-indigo-500" />
+                <span className="font-medium">{vehicle.transmission}</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                <Fuel size={18} className="text-indigo-500" />
+                <span className="font-medium">{vehicle.fuelType}</span>
               </div>
             </div>
 
-            {/* Características Adicionales (Ejemplo estático o dinámico si tuviéramos más campos) */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Detalles y Equipamiento</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex items-center gap-2 text-gray-700">
-                  <CheckCircle2 size={16} className="text-green-500" /> Documentación al día
-                </div>
-                <div className="flex items-center gap-2 text-gray-700">
-                  <CheckCircle2 size={16} className="text-green-500" /> Mantenimientos registrados
-                </div>
-                <div className="flex items-center gap-2 text-gray-700">
-                  <CheckCircle2 size={16} className="text-green-500" /> Sin multas
-                </div>
-                <div className="flex items-center gap-2 text-gray-700">
-                  <CheckCircle2 size={16} className="text-green-500" /> Transferencia inmediata
-                </div>
-              </div>
+            <div className="prose prose-indigo max-w-none text-gray-600">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Descripción</h3>
+              <p className="whitespace-pre-line leading-relaxed">{vehicle.description}</p>
             </div>
           </div>
 
-          {/* Sidebar de Contacto (Sticky en Desktop) */}
-          <div className="md:col-span-1">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 sticky top-24">
-              <h3 className="font-bold text-gray-900 mb-4">¿Te interesa este auto?</h3>
-              <p className="text-sm text-gray-500 mb-6">Contacta directamente al vendedor para agendar una visita o consultar detalles.</p>
-
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-lg shadow-green-200 mb-3"
-              >
-                <MessageCircle size={20} />
-                Enviar WhatsApp
-              </a>
-
-              <div className="text-center">
-                {sellerProfile.companyName && <p className="font-bold text-gray-800">{sellerProfile.companyName}</p>}
-                {sellerProfile.businessHours && <p className="text-xs text-gray-500 mt-1">Horario: {sellerProfile.businessHours}</p>}
-                <p className="text-xs text-gray-400 mt-4">Referencia: {vehicle.make} {vehicle.model} #{vehicle.id.slice(-4)}</p>
+          {/* Características Adicionales (Ejemplo estático o dinámico si tuviéramos más campos) */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Detalles y Equipamiento</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex items-center gap-2 text-gray-700">
+                <CheckCircle2 size={16} className="text-green-500" /> Documentación al día
               </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                <CheckCircle2 size={16} className="text-green-500" /> Mantenimientos registrados
+              </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                <CheckCircle2 size={16} className="text-green-500" /> Sin multas
+              </div>
+              <div className="flex items-center gap-2 text-gray-700">
+                <CheckCircle2 size={16} className="text-green-500" /> Transferencia inmediata
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar de Contacto (Sticky en Desktop) */}
+        <div className="md:col-span-1">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 sticky top-24">
+            <h3 className="font-bold text-gray-900 mb-4">¿Te interesa este auto?</h3>
+            <p className="text-sm text-gray-500 mb-6">Contacta directamente al vendedor para agendar una visita o consultar detalles.</p>
+
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-lg shadow-green-200 mb-3"
+            >
+              <MessageCircle size={20} />
+              Enviar WhatsApp
+            </a>
+
+            <div className="text-center">
+              {sellerProfile.companyName && <p className="font-bold text-gray-800">{sellerProfile.companyName}</p>}
+              {sellerProfile.businessHours && <p className="text-xs text-gray-500 mt-1">Horario: {sellerProfile.businessHours}</p>}
+              <p className="text-xs text-gray-400 mt-4">Referencia: {vehicle.make} {vehicle.model} #{vehicle.id.slice(-4)}</p>
             </div>
           </div>
         </div>

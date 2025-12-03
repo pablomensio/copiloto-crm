@@ -3,6 +3,9 @@ import { Vehicle, VehicleStatus } from '../types';
 import { generateVehicleDescription } from '../services/geminiService';
 import { X, Save, Car, DollarSign, Calendar, Gauge, Settings, Fuel, Image as ImageIcon, Wand2 } from 'lucide-react';
 
+import { uploadVehicleImage } from '../services/firebase';
+import { Upload } from 'lucide-react';
+
 interface AddVehicleModalProps {
   onAdd: (newVehicle: Vehicle) => void;
   onClose: () => void;
@@ -26,6 +29,7 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ onAdd, onClose, initi
   const [formData, setFormData] = useState<Omit<Vehicle, 'id'>>(initialFormState);
   const [errors, setErrors] = useState<Partial<Record<keyof Vehicle, string>>>({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (initialVehicle) {
@@ -37,6 +41,22 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ onAdd, onClose, initi
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: name === 'year' || name === 'price' || name === 'mileage' ? Number(value) : value }));
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const url = await uploadVehicleImage(file);
+      setFormData(prev => ({ ...prev, imageUrl: url }));
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      setErrors(prev => ({ ...prev, imageUrl: "Error al subir imagen" }));
+    } finally {
+      setUploading(false);
+    }
   };
 
   const validate = () => {
@@ -130,7 +150,30 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ onAdd, onClose, initi
             {renderInput('mileage', 'Kilometraje', 'number', 'Ej: 15000', <Gauge size={16} className="absolute left-3 top-2.5 text-gray-400" />)}
           </div>
 
-          {renderInput('imageUrl', 'URL de Imagen', 'text', 'https://...', <ImageIcon size={16} className="absolute left-3 top-2.5 text-gray-400" />)}
+          <div className="col-span-1 md:col-span-3">
+            <label className="text-xs font-semibold text-gray-500 uppercase mb-1 block">Imagen del Vehículo</label>
+            <div className="flex items-center gap-4">
+              {formData.imageUrl && (
+                <img src={formData.imageUrl} alt="Preview" className="w-20 h-20 object-cover rounded-lg border border-gray-200" />
+              )}
+              <div className="flex-1">
+                <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    {uploading ? (
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                    ) : (
+                      <>
+                        <Upload className="w-6 h-6 text-gray-400 mb-1" />
+                        <p className="text-xs text-gray-500"><span className="font-semibold">Click para subir</span></p>
+                      </>
+                    )}
+                  </div>
+                  <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+                </label>
+              </div>
+            </div>
+            {errors.imageUrl && <p className="text-xs text-red-500 mt-1">{errors.imageUrl}</p>}
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -210,3 +253,4 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ onAdd, onClose, initi
 };
 
 export default AddVehicleModal;
+
