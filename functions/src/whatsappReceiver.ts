@@ -6,21 +6,21 @@ const db = admin.firestore();
 
 // Helpers simulados (Implementar con lógica real)
 async function obtenerInventarioActualizado() {
-    // TODO: Implementar lectura real de Firestore
-    return [
-        { id: "FIA-CRO-001", modelo: "Fiat Cronos Precision", año: 2023, precio: 21500000 },
-        { id: "FOR-FOC-99", modelo: "Ford Focus SE", año: 2017, precio: 14000000 }
-    ];
+  // TODO: Implementar lectura real de Firestore
+  return [
+    { id: "FIA-CRO-001", modelo: "Fiat Cronos Precision", año: 2023, precio: 21500000 },
+    { id: "FOR-FOC-99", modelo: "Ford Focus SE", año: 2017, precio: 14000000 }
+  ];
 }
 
 async function enviarMensajeWhatsApp(to: string, message: string) {
-    // TODO: Implementar llamada a API de Meta
-    console.log(`[WHATSAPP MOCK] Enviando a ${to}: "${message}"`);
+  // TODO: Implementar llamada a API de Meta
+  console.log(`[WHATSAPP MOCK] Enviando a ${to}: "${message}"`);
 }
 
 export const receiveWhatsapp = functions.https.onRequest(async (req, res) => {
   const body = req.body;
-  
+
   // 1. Verificación básica del Webhook de Meta (Challenge)
   if (req.method === "GET") {
     const mode = req.query["hub.mode"];
@@ -28,8 +28,8 @@ export const receiveWhatsapp = functions.https.onRequest(async (req, res) => {
     const challenge = req.query["hub.challenge"];
     // Reemplaza 'TU_VERIFY_TOKEN' con tu token real
     if (mode === "subscribe" && token === "TU_VERIFY_TOKEN") {
-        res.status(200).send(challenge);
-        return;
+      res.status(200).send(challenge);
+      return;
     }
     res.sendStatus(403);
     return;
@@ -56,7 +56,7 @@ export const receiveWhatsapp = functions.https.onRequest(async (req, res) => {
     await db.runTransaction(async (t) => {
       const doc = await t.get(chatRef);
       const now = Date.now();
-      
+
       let currentBuffer: string[] = [];
       if (doc.exists) {
         const data = doc.data();
@@ -78,7 +78,7 @@ export const receiveWhatsapp = functions.https.onRequest(async (req, res) => {
     // 5. VERIFICACIÓN FINAL Y EJECUCIÓN
     const docAfterWait = await chatRef.get();
     const data = docAfterWait.data();
-    
+
     if (Date.now() - (data?.lastMessageTime || 0) < 3000) {
       console.log("Buffer activo: Abortando ejecución, hay un mensaje más reciente.");
       res.sendStatus(200);
@@ -88,18 +88,18 @@ export const receiveWhatsapp = functions.https.onRequest(async (req, res) => {
     if (!data?.processing && data?.buffer && data.buffer.length > 0) {
       await chatRef.update({ processing: true });
 
-      const fullText = data.buffer.join(" . "); 
+      const fullText = data.buffer.join(" . ");
 
       // Obtener historial
       const historySnapshot = await chatRef.collection("history")
-                                           .orderBy("timestamp", "desc")
-                                           .limit(10).get();
+        .orderBy("timestamp", "desc")
+        .limit(10).get();
       const history = historySnapshot.docs.map(d => d.data().content).reverse();
 
       // Invocamos el flujo Genkit
       const response = await cerebroVentas({
         datos_lead: data?.leadData || "NO_EXISTE",
-        historial_chat: history, 
+        historial_chat: history,
         inventario: await obtenerInventarioActualizado(),
         mensaje_actual: fullText,
         contexto_origen: data?.contexto_origen || null
@@ -107,28 +107,28 @@ export const receiveWhatsapp = functions.https.onRequest(async (req, res) => {
 
       // Enviamos respuesta
       await enviarMensajeWhatsApp(from, response.respuesta_cliente.mensaje_whatsapp);
-      
+
       // Guardamos en historial
       const batch = db.batch();
       // Mensaje usuario
       const userMsgRef = chatRef.collection("history").doc();
       batch.set(userMsgRef, {
-          role: "user",
-          content: fullText,
-          timestamp: admin.firestore.FieldValue.serverTimestamp()
+        role: "user",
+        content: fullText,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
       });
       // Mensaje bot
       const botMsgRef = chatRef.collection("history").doc();
       batch.set(botMsgRef, {
-          role: "assistant",
-          content: response.respuesta_cliente.mensaje_whatsapp,
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          metadata: response // Guardamos todo el análisis para debug
+        role: "assistant",
+        content: response.respuesta_cliente.mensaje_whatsapp,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        metadata: response // Guardamos todo el análisis para debug
       });
 
       // Limpiamos buffer
-      batch.update(chatRef, { 
-        buffer: [], 
+      batch.update(chatRef, {
+        buffer: [],
         processing: false
       });
 
