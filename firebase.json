@@ -1,8 +1,28 @@
 {
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs20"
-  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "node_functions",
+      "runtime": "nodejs20", 
+      "ignore": [
+        "node_modules",
+        ".git",
+        ".firebase",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    },
+    {
+      "source": "market_analysis_fn",
+      "codebase": "python_functions",
+      "runtime": "python311",
+      "ignore": [
+        "venv",
+        "__pycache__",
+        "*.pyc"
+      ]
+    }
+  ],
   "hosting": {
     "public": "dist",
     "ignore": [

@@ -1,4 +1,4 @@
-import { onFlow } from "@genkit-ai/firebase/functions";
+import { onFlow, noAuth } from "@genkit-ai/firebase/functions";
 import { generate } from "@genkit-ai/ai";
 import { configureGenkit } from "@genkit-ai/core";
 import { vertexAI } from "@genkit-ai/vertexai";
@@ -9,7 +9,7 @@ configureGenkit({
   plugins: [vertexAI({ location: "us-central1" })],
 });
 
-// Esquema de Salida
+// Esquema de Salida (Vital para que el frontend entienda)
 const CopilotoOutputSchema = z.object({
   gestion_lead: z.object({
     accion_lead: z.enum(["CREAR", "ACTUALIZAR", "SCORE", "NINGUNA"]),
@@ -46,9 +46,12 @@ export const cerebroVentas = onFlow(
       contexto_origen: z.string().nullable().optional()
     }),
     outputSchema: CopilotoOutputSchema,
+    authPolicy: noAuth(), 
   },
   async (input) => {
-    const userPrompt = `
+    const fullPrompt = `
+      ${SYSTEM_INSTRUCTION}
+
       CONTEXTO DE EJECUCIÓN:
       - DATOS LEAD: ${JSON.stringify(input.datos_lead)}
       - INVENTARIO DISPONIBLE: ${JSON.stringify(input.inventario)}
@@ -61,14 +64,19 @@ export const cerebroVentas = onFlow(
 
     const llmResponse = await generate({
       model: "vertexai/gemini-2.0-flash-001",
-      prompt: userPrompt,
-      system: SYSTEM_INSTRUCTION,
+      prompt: fullPrompt,
       config: {
         temperature: 0.2,
       },
       output: { schema: CopilotoOutputSchema }
     });
 
-    return llmResponse.output();
+    const output = llmResponse.output();
+
+    if (!output) {
+      throw new Error("La IA no generó una respuesta válida (output es null)");
+    }
+
+    return output;
   }
 );

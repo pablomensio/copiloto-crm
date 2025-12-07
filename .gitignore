@@ -1,58 +1,36 @@
-
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
-
-# testing
-/coverage
-
-# production
-/dist
-
-# misc
-.DS_Store
-*.pem
-
-# debug
+# Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
+.yarn--build-stamp
 
-# local env files
-.env*.local
-.env
-.env.*
-.env.local
-!.env.example
+# Diagnostic reports (https://nodejs.org/api/report.html)
+.report/
 
-# Firebase
-.firebase/
-firebase-debug.log*
-
-# OS metadata
-.DS_Store
-Thumbs.db
-
-# Firebase
-serviceAccountKey.json
-serviceAccountKey.*.json
-
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+# Node.js
+node_modules/
+dist/
 
 # Vite
 .vite/
-.vercel
+.idea/
 
-# Local Data
-/importer
-debug_fetch.*
+# Firebase
+.firebase/
+*.env
+firebase-debug.log
+firebase-debug.*.log
+
+# TypeScript build artifacts
+lib/
+
+# Python venv
+market_analysis_fn/venv/
+market_analysis_fn/__pycache__/
+
+# IDE-specific files
+.vscode/
+.idx/
