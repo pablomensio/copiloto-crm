@@ -1,9 +1,9 @@
-from firebase_functions import https_fn
+import functions_framework
 import requests
 import statistics
 
-@https_fn.on_request()
-def analista_mercado(request):
+@functions_framework.http
+def market_analysis(request):
     """
     Cloud Function to analyze vehicle market prices using MercadoLibre API.
     Expects JSON body: { "make": "Toyota", "model": "Corolla", "year": 2020 }
@@ -12,7 +12,7 @@ def analista_mercado(request):
     cors_headers = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Max-Age': '3600'
     }
 

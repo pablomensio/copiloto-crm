@@ -13,7 +13,7 @@ interface MarketAnalysisResult {
 }
 
 // TODO: Replace with actual Cloud Function URL after deployment
-const CLOUD_FUNCTION_URL = "https://us-central1-copiloto-crm-1764216245.cloudfunctions.net/analista_mercado";
+const CLOUD_FUNCTION_URL = "https://us-central1-copiloto-crm-1764216245.cloudfunctions.net/market_analysis";
 
 export const analyzeMarketPrice = async (vehicle: Vehicle): Promise<MarketAnalysisResult> => {
     try {
