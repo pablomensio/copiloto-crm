@@ -89,7 +89,17 @@ export const fetchLeads = async (): Promise<Lead[]> => {
     const querySnapshot = await getDocs(collection(db, LEADS_COLLECTION));
     const leads: Lead[] = [];
     querySnapshot.forEach((doc) => {
-      leads.push(doc.data() as Lead);
+      const data = doc.data() as any;
+      leads.push({
+        ...data,
+        id: doc.id,
+        createdAt: data.createdAt?.toDate?.().toISOString() || data.createdAt || new Date().toISOString(),
+        nextFollowUp: data.nextFollowUp?.toDate?.().toISOString() || data.nextFollowUp || null,
+        history: (data.history || []).map((h: any) => ({
+          ...h,
+          timestamp: h.timestamp?.toDate?.().toISOString() || h.timestamp || new Date().toISOString()
+        }))
+      } as Lead);
     });
     return leads;
   } catch (error) {
@@ -107,7 +117,14 @@ export const fetchTasks = async (): Promise<Task[]> => {
     const querySnapshot = await getDocs(collection(db, TASKS_COLLECTION));
     const tasks: Task[] = [];
     querySnapshot.forEach((doc) => {
-      tasks.push(doc.data() as Task);
+      const data = doc.data() as any;
+      tasks.push({
+        ...data,
+        id: doc.id,
+        // Convertir Timestamps a string ISO si es necesario
+        date: data.dueDate?.toDate?.().toISOString() || data.date || new Date().toISOString(),
+        createdAt: data.createdAt?.toDate?.().toISOString() || data.createdAt || new Date().toISOString()
+      } as Task);
     });
     return tasks;
   } catch (error) {
