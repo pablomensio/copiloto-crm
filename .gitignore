@@ -56,3 +56,4 @@ serviceAccountKey.*.json
 # Local Data
 /importer
 debug_fetch.*
+node_modules

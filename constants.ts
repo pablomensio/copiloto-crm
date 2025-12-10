@@ -1,4 +1,4 @@
-import { Lead, Vehicle, VehicleStatus, Task } from './types';
+import { Lead, Vehicle, VehicleStatus, Task, BudgetCalculation } from './types';
 
 export const INITIAL_VEHICLES: Record<string, Vehicle> = {
   'v1': {
@@ -96,7 +96,7 @@ export const LEADS: Lead[] = [
     name: 'Ana García',
     budget: 60000,
     interestLevel: 'Medium',
-    interestedVehicleId: 'v2', 
+    interestedVehicleId: 'v2',
     avatarUrl: 'https://picsum.photos/100/100?random=11',
     history: [
       { id: 'i7', type: 'whatsapp', date: twoDaysAgo, notes: 'Preguntó disponibilidad' },
@@ -169,3 +169,32 @@ export const INITIAL_TASKS: Task[] = [
     type: 'Personal'
   }
 ];
+
+export const calculateBudget = (
+  valorVehiculo: number,
+  transferencia: number,
+  costoOtorgamiento: number,
+  autoUsado: number,
+  pesos: number,
+  sena: number,
+  credito: number
+): BudgetCalculation => {
+  const totalACubrir = valorVehiculo + transferencia + costoOtorgamiento;
+  const totalEntregado = autoUsado + pesos + sena + credito;
+  const diferencia = totalACubrir - totalEntregado;
+
+  return {
+    totalACubrir,
+    totalEntregado,
+    diferencia,
+    items: {
+      valorVehiculo,
+      transferencia,
+      costoOtorgamiento,
+      autoUsado,
+      pesos,
+      sena,
+      credito
+    }
+  };
+};

@@ -15,71 +15,164 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.receiveWhatsapp = void 0;
+exports.receiveWhatsapp = exports.enviarMensajeWhatsApp = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const axios_1 = __importDefault(require("axios"));
 const genkitFlow_1 = require("./genkitFlow");
-const db = admin.firestore();
-// Helpers simulados (Implementar con lógica real)
+// Helpers
 async function obtenerInventarioActualizado() {
-    // TODO: Implementar lectura real de Firestore
-    return [
-        { id: "FIA-CRO-001", modelo: "Fiat Cronos Precision", año: 2023, precio: 21500000 },
-        { id: "FOR-FOC-99", modelo: "Ford Focus SE", año: 2017, precio: 14000000 }
-    ];
+    const db = admin.firestore();
+    try {
+        const snapshot = await db.collection("vehicles").limit(20).get();
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                modelo: `${data.make} ${data.model} ${data.year}`,
+                año: data.year,
+                precio: data.price,
+                url: `https://copiloto-crm-1764216245.web.app/?vehicle=${doc.id}`,
+                imageUrl: data.imageUrl || (data.imageUrls && data.imageUrls[0]) || null
+            };
+        });
+    }
+    catch (error) {
+        console.error("Error al obtener inventario:", error);
+        return [];
+    }
 }
-async function enviarMensajeWhatsApp(to, message) {
-    // TODO: Implementar llamada a API de Meta
-    console.log(`[WHATSAPP MOCK] Enviando a ${to}: "${message}"`);
-}
-exports.receiveWhatsapp = functions.https.onRequest(async (req, res) => {
-    var _a, _b, _c;
-    const body = req.body;
-    // 1. Verificación básica del Webhook de Meta (Challenge)
-    if (req.method === "GET") {
-        const mode = req.query["hub.mode"];
-        const token = req.query["hub.verify_token"];
-        const challenge = req.query["hub.challenge"];
-        // Reemplaza 'TU_VERIFY_TOKEN' con tu token real
-        if (mode === "subscribe" && token === "TU_VERIFY_TOKEN") {
-            res.status(200).send(challenge);
-            return;
-        }
-        res.sendStatus(403);
+async function enviarMensajeWhatsApp(to, message, mediaUrl) {
+    var _a;
+    const productId = process.env.MAYTAPI_PRODUCT_ID;
+    const token = process.env.MAYTAPI_TOKEN;
+    const phoneId = process.env.MAYTAPI_PHONE_ID;
+    const apiUrl = process.env.MAYTAPI_API_URL || "https://api.maytapi.com/api";
+    if (!productId || !token || !phoneId) {
+        console.error("Faltan credenciales de Maytapi");
         return;
     }
-    // 2. Procesar Mensaje Entrante
-    const entry = (_a = body.entry) === null || _a === void 0 ? void 0 : _a[0];
-    const changes = (_b = entry === null || entry === void 0 ? void 0 : entry.changes) === null || _b === void 0 ? void 0 : _b[0];
-    const value = changes === null || changes === void 0 ? void 0 : changes.value;
-    const message = (_c = value === null || value === void 0 ? void 0 : value.messages) === null || _c === void 0 ? void 0 : _c[0];
-    if (!message || message.type !== "text") {
+    try {
+        const url = `${apiUrl}/${productId}/${phoneId}/sendMessage`;
+        const headers = {
+            "x-maytapi-key": token,
+            "Content-Type": "application/json"
+        };
+        // Si hay mediaUrl, enviamos primero la imagen y luego el texto
+        if (mediaUrl) {
+            // Enviar imagen
+            await axios_1.default.post(url, {
+                to_number: to,
+                type: "media",
+                message: mediaUrl
+            }, { headers });
+            // Pequeño delay para que llegue en orden
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        // Enviar mensaje de texto
+        await axios_1.default.post(url, {
+            to_number: to,
+            type: "text",
+            message: message
+        }, { headers });
+    }
+    catch (error) {
+        console.error("Error enviando mensaje a WhatsApp (Maytapi):", ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
+    }
+}
+exports.enviarMensajeWhatsApp = enviarMensajeWhatsApp;
+// Buscar o crear lead por teléfono
+async function gestionarLead(db, telefono, gestionLead, chatId) {
+    var _a, _b, _c, _d;
+    const leadsRef = db.collection("leads");
+    // Buscar lead existente por teléfono
+    const existingLeadQuery = await leadsRef.where("phone", "==", telefono).limit(1).get();
+    let leadId;
+    let leadRef;
+    if (!existingLeadQuery.empty) {
+        // Lead ya existe
+        leadRef = existingLeadQuery.docs[0].ref;
+        leadId = leadRef.id;
+    }
+    else if (gestionLead.accion_lead === "CREAR" || gestionLead.accion_lead === "ACTUALIZAR") {
+        // Crear nuevo lead
+        const nuevoLead = {
+            phone: telefono,
+            name: ((_a = gestionLead.datos_extraidos) === null || _a === void 0 ? void 0 : _a.nombre) || "Sin nombre",
+            status: ((_b = gestionLead.actualizaciones_estado) === null || _b === void 0 ? void 0 : _b.estado) || "NUEVO",
+            interestLevel: "Medium",
+            budget: 0,
+            interestedVehicleId: "",
+            avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(((_c = gestionLead.datos_extraidos) === null || _c === void 0 ? void 0 : _c.nombre) || "Cliente")}&background=random`,
+            history: [],
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            source: "WhatsApp",
+            chatId: chatId
+        };
+        leadRef = await leadsRef.add(nuevoLead);
+        leadId = leadRef.id;
+        console.log(`Nuevo lead creado: ${leadId}`);
+    }
+    else {
+        // No hay acción de lead, retornar null
+        return null;
+    }
+    // Actualizar datos si hay información nueva
+    if (gestionLead.accion_lead === "ACTUALIZAR" && gestionLead.datos_extraidos) {
+        const updates = {};
+        if (gestionLead.datos_extraidos.nombre)
+            updates.name = gestionLead.datos_extraidos.nombre;
+        if (gestionLead.datos_extraidos.email)
+            updates.email = gestionLead.datos_extraidos.email;
+        if ((_d = gestionLead.actualizaciones_estado) === null || _d === void 0 ? void 0 : _d.estado)
+            updates.status = gestionLead.actualizaciones_estado.estado;
+        if (Object.keys(updates).length > 0) {
+            await leadRef.update(updates);
+        }
+    }
+    return { leadId, leadRef };
+}
+exports.receiveWhatsapp = functions.https.onRequest(async (req, res) => {
+    var _a;
+    const db = admin.firestore();
+    const body = req.body;
+    console.log("INCOMING WEBHOOK:", JSON.stringify(body));
+    // Maytapi webhook structure: { type: "message", message: {...}, conversation: {...}, user: {...} }
+    if (body.type !== "message") {
+        console.log("Not a message event, ignoring");
         res.sendStatus(200);
         return;
     }
-    const from = message.from;
-    const text = message.text.body;
+    // Extract message data from Maytapi payload
+    const message = body.message;
+    const conversation = body.conversation;
+    const user = body.user;
+    if (!message || message.type !== "text") {
+        console.log("Not a text message, ignoring");
+        res.sendStatus(200);
+        return;
+    }
+    const from = ((_a = conversation === null || conversation === void 0 ? void 0 : conversation.id) === null || _a === void 0 ? void 0 : _a.split("@")[0]) || (user === null || user === void 0 ? void 0 : user.phone);
+    const text = message.text;
+    if (!from || !text) {
+        console.log("Missing from or text");
+        res.sendStatus(200);
+        return;
+    }
+    console.log(`Message from ${from}: ${text}`);
     const chatId = `chat_${from}`;
     const chatRef = db.collection("chats").doc(chatId);
-    // 3. ESTRATEGIA DE BUFFER (DEBOUNCE)
     try {
         await db.runTransaction(async (t) => {
             const doc = await t.get(chatRef);
@@ -96,9 +189,7 @@ exports.receiveWhatsapp = functions.https.onRequest(async (req, res) => {
                 processing: false
             }, { merge: true });
         });
-        // 4. ESPERA DE SEGURIDAD
         await new Promise(resolve => setTimeout(resolve, 3500));
-        // 5. VERIFICACIÓN FINAL Y EJECUCIÓN
         const docAfterWait = await chatRef.get();
         const data = docAfterWait.data();
         if (Date.now() - ((data === null || data === void 0 ? void 0 : data.lastMessageTime) || 0) < 3000) {
@@ -109,48 +200,60 @@ exports.receiveWhatsapp = functions.https.onRequest(async (req, res) => {
         if (!(data === null || data === void 0 ? void 0 : data.processing) && (data === null || data === void 0 ? void 0 : data.buffer) && data.buffer.length > 0) {
             await chatRef.update({ processing: true });
             const fullText = data.buffer.join(" . ");
-            // Obtener historial
             const historySnapshot = await chatRef.collection("history")
                 .orderBy("timestamp", "desc")
                 .limit(10).get();
-            const history = historySnapshot.docs.map(d => d.data().content).reverse();
-            // Invocamos el flujo Genkit
-            const response = await (0, genkitFlow_1.cerebroVentas)({
+            const history = historySnapshot.docs.map(d => {
+                const data = d.data();
+                const role = data.role === 'user' ? 'CLIENTE' : 'VENDEDOR (TÚ)';
+                return `${role}: ${data.content}`;
+            }).reverse();
+            const inventario = await obtenerInventarioActualizado();
+            const response = await (0, genkitFlow_1.ejecutarCerebroVentas)({
                 datos_lead: (data === null || data === void 0 ? void 0 : data.leadData) || "NO_EXISTE",
                 historial_chat: history,
-                inventario: await obtenerInventarioActualizado(),
+                inventario: inventario,
                 mensaje_actual: fullText,
                 contexto_origen: (data === null || data === void 0 ? void 0 : data.contexto_origen) || null
             });
-            // Enviamos respuesta
-            await enviarMensajeWhatsApp(from, response.respuesta_cliente.mensaje_whatsapp);
-            // Guardamos en historial
+            // Gestionar lead (crear/actualizar en CRM)
+            const leadResult = await gestionarLead(db, from, response.gestion_lead, chatId);
+            // Enviar respuesta con foto si la IA la incluyó
+            await enviarMensajeWhatsApp(from, response.respuesta_cliente.mensaje_whatsapp, response.respuesta_cliente.media_url);
             const batch = db.batch();
-            // Mensaje usuario
+            // Guardar mensaje del usuario en historial del chat
             const userMsgRef = chatRef.collection("history").doc();
             batch.set(userMsgRef, {
                 role: "user",
                 content: fullText,
                 timestamp: admin.firestore.FieldValue.serverTimestamp()
             });
-            // Mensaje bot
+            // Guardar respuesta del bot
             const botMsgRef = chatRef.collection("history").doc();
             batch.set(botMsgRef, {
                 role: "assistant",
                 content: response.respuesta_cliente.mensaje_whatsapp,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                metadata: response // Guardamos todo el análisis para debug
+                metadata: response,
+                mediaUrl: response.respuesta_cliente.media_url || null
             });
-            // Limpiamos buffer
-            batch.update(chatRef, {
+            // Vincular chat con lead si existe
+            const chatUpdates = {
                 buffer: [],
                 processing: false
-            });
+            };
+            if (leadResult) {
+                chatUpdates.leadId = leadResult.leadId;
+            }
+            batch.update(chatRef, chatUpdates);
             await batch.commit();
         }
     }
     catch (error) {
         console.error("Error en flujo WhatsApp:", error);
+        if (from) {
+            await enviarMensajeWhatsApp(from, `Error: ${error.message}`);
+        }
     }
     res.sendStatus(200);
 });
