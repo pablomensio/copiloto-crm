@@ -243,26 +243,45 @@ export const receiveWhatsapp = functions.https.onRequest(async (req, res) => {
 
         // TAREA: "Llamar el viernes"
         if (accion === "CREAR_TAREA") {
-          await db.collection("tasks").add({
-            title: `Seguimiento WhatsApp: ${leadResult.leadId}`,
+          const taskId = db.collection("tasks").doc().id;
+          const now = new Date().toISOString();
+          await db.collection("tasks").doc(taskId).set({
+            id: taskId,
+            title: `Seguimiento WhatsApp: ${fullText.substring(0, 50)}...`,
             description: `El cliente pidió: "${fullText}"`,
-            status: "Pending",
+            date: now, // ISO string, no Timestamp
+            isCompleted: false,
             priority: "Medium",
-            dueDate: admin.firestore.Timestamp.now(), // Por defecto hoy
-            leadId: leadResult.leadId,
-            assignedTo: "bot", // O ID de un vendedor default
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
+            type: "FollowUp",
+            relatedLeadId: leadResult.leadId
           });
+
+          // Agregar al history del lead
+          await leadResult.leadRef.update({
+            history: admin.firestore.FieldValue.arrayUnion({
+              id: `task_${taskId}`,
+              type: "note",
+              date: now,
+              notes: `🤖 Tarea creada: ${fullText}`,
+              details: response.razonamiento
+            })
+          });
+
           console.log("✅ Tarea creada para el lead:", leadResult.leadId);
         }
 
         // NOTA: Información relevante
-        if (accion === "CREAR_NOTA" || accion === "CREAR_TAREA") {
-          const noteRef = db.collection("leads").doc(leadResult.leadId).collection("notes");
-          await noteRef.add({
-            content: `🤖 Nota IA: ${response.razonamiento}`,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            author: "Copiloto Bot"
+        if (accion === "CREAR_NOTA") {
+          const now = new Date().toISOString();
+          // Agregar al history del lead
+          await leadResult.leadRef.update({
+            history: admin.firestore.FieldValue.arrayUnion({
+              id: `note_${Date.now()}`,
+              type: "note",
+              date: now,
+              notes: `🤖 ${response.razonamiento}`,
+              details: fullText
+            })
           });
         }
       }
