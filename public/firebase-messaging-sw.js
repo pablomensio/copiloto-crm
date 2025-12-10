@@ -1,14 +1,16 @@
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
 
-// Initialize the Firebase app in the service worker by passing in the messagingSenderId.
+// Initialize the Firebase app in the service worker
+// NOTE: Firebase frontend API keys are designed to be public. 
+// Security is enforced through Firebase Security Rules, not the API key.
 firebase.initializeApp({
-    apiKey: "AIzaSyDW6ctFsIkjqH3ROZuWxpcRYCHzrbSu_M4", // Using dev key for now, should be dynamic or prod
-    authDomain: "copiloto-crmgit-66582830-eaf41.firebaseapp.com",
-    projectId: "copiloto-crmgit-66582830-eaf41",
-    storageBucket: "copiloto-crmgit-66582830-eaf41.appspot.com",
-    messagingSenderId: "34243186092",
-    appId: "1:34243186092:web:f826ca386fa549f24c7e09"
+    apiKey: "AIzaSyBJQhE2KfGhSBKv7xXl0y5Q4aNL8xNqZgE",
+    authDomain: "copiloto-crm-1764216245.firebaseapp.com",
+    projectId: "copiloto-crm-1764216245",
+    storageBucket: "copiloto-crm-1764216245.firebasestorage.app",
+    messagingSenderId: "1053361705271",
+    appId: "1:1053361705271:web:0c458c56b2f0da4c8c5e1a"
 });
 
 // Retrieve an instance of Firebase Messaging so that it can handle background
