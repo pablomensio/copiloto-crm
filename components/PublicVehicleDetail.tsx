@@ -11,7 +11,10 @@ interface PublicVehicleDetailProps {
 }
 
 const PublicVehicleDetail: React.FC<PublicVehicleDetailProps> = ({ vehicle, sellerProfile, onBack, showPrice }) => {
-  const whatsappUrl = `https://wa.me/${sellerProfile.phoneNumber || ''}?text=Hola ${sellerProfile.name}, estoy interesado en el ${vehicle.make} ${vehicle.model} (${vehicle.year}) que vi en tu catálogo.`;
+  // Limpiar y validar número de teléfono
+  const cleanPhone = (sellerProfile.phoneNumber || '').replace(/[^0-9]/g, '');
+  console.log('📱 WhatsApp Debug:', { raw: sellerProfile.phoneNumber, clean: cleanPhone, sellerProfile });
+  const whatsappUrl = `https://wa.me/${cleanPhone}?text=Hola ${sellerProfile.name}, estoy interesado en el ${vehicle.make} ${vehicle.model} (${vehicle.year}) que vi en tu catálogo.`;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 animate-fade-in">
@@ -36,11 +39,6 @@ const PublicVehicleDetail: React.FC<PublicVehicleDetailProps> = ({ vehicle, sell
               alt={`${vehicle.make} ${vehicle.model}`}
               className="w-full h-full object-cover"
             />
-            {showPrice && (
-              <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur text-indigo-700 px-6 py-2 rounded-full font-bold text-2xl shadow-lg">
-                ${vehicle.price.toLocaleString()}
-              </div>
-            )}
           </div>
         </div>
         {/* Gallery Thumbnails */}
@@ -82,25 +80,6 @@ const PublicVehicleDetail: React.FC<PublicVehicleDetailProps> = ({ vehicle, sell
             <div className="prose prose-indigo max-w-none text-gray-600">
               <h3 className="text-lg font-bold text-gray-900 mb-2">Descripción</h3>
               <p className="whitespace-pre-line leading-relaxed">{vehicle.description}</p>
-            </div>
-          </div>
-
-          {/* Características Adicionales (Ejemplo estático o dinámico si tuviéramos más campos) */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Detalles y Equipamiento</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex items-center gap-2 text-gray-700">
-                <CheckCircle2 size={16} className="text-green-500" /> Documentación al día
-              </div>
-              <div className="flex items-center gap-2 text-gray-700">
-                <CheckCircle2 size={16} className="text-green-500" /> Mantenimientos registrados
-              </div>
-              <div className="flex items-center gap-2 text-gray-700">
-                <CheckCircle2 size={16} className="text-green-500" /> Sin multas
-              </div>
-              <div className="flex items-center gap-2 text-gray-700">
-                <CheckCircle2 size={16} className="text-green-500" /> Transferencia inmediata
-              </div>
             </div>
           </div>
         </div>

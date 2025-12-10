@@ -7,7 +7,7 @@ import { ejecutarCerebroVentas } from "./genkitFlow";
 async function obtenerInventarioActualizado() {
   const db = admin.firestore();
   try {
-    const snapshot = await db.collection("vehicles").limit(20).get();
+    const snapshot = await db.collection("vehicles").limit(50).get(); // Aumentamos límite para tener mas contexto
     return snapshot.docs.map(doc => {
       const data = doc.data();
       return {
@@ -15,14 +15,60 @@ async function obtenerInventarioActualizado() {
         modelo: `${data.make} ${data.model} ${data.year}`,
         año: data.year,
         precio: data.price,
-        url: `https://copiloto-crm-1764216245.web.app/?vehicle=${doc.id}`,
+        url: `https://copiloto-crm-1764216245.web.app/public/car/${doc.id}`, // URL Corregida
         imageUrl: data.imageUrl || (data.imageUrls && data.imageUrls[0]) || null,
-        imageUrls: data.imageUrls || [] // Agregamos lista completa para carrusel
+        imageUrls: data.imageUrls || []
       };
     });
   } catch (error) {
     console.error("Error al obtener inventario:", error);
     return [];
+  }
+}
+
+async function obtenerOCrearCatalogoCompleto(db: admin.firestore.Firestore): Promise<string> {
+  const FULL_INVENTORY_ID = "__FULL_INVENTORY__";
+  const menuRef = db.collection("menus").doc(FULL_INVENTORY_ID);
+
+  // 1. Verificar si existe y si es reciente (menos de 24hs)
+  const doc = await menuRef.get();
+  const now = admin.firestore.Timestamp.now();
+
+  if (doc.exists) {
+    const data = doc.data();
+    // Si se actualizó hace menos de 24hs, devolvemos la URL
+    const lastUpdate = data?.updatedAt || data?.createdAt;
+    if (lastUpdate && (now.toMillis() - lastUpdate.toMillis() < 24 * 60 * 60 * 1000)) {
+      return `https://copiloto-crm-1764216245.web.app/public/menu/${FULL_INVENTORY_ID}`;
+    }
+  }
+
+  // 2. Si no existe o es viejo, lo regeneramos
+  try {
+    const vehiclesSnapshot = await db.collection("vehicles")
+      .where("status", "==", "Available") // Solo disponibles
+      .get();
+
+    const vehicleIds = vehiclesSnapshot.docs.map(d => d.id);
+
+    await menuRef.set({
+      id: FULL_INVENTORY_ID,
+      name: "Inventario Completo",
+      vehicleIds: vehicleIds,
+      createdAt: now,
+      updatedAt: now,
+      viewCount: doc.exists ? (doc.data()?.viewCount || 0) : 0,
+      includePrice: true, // Por defecto con precio
+      isSystem: true // Flag para identificarlo
+    });
+
+    console.log(`✅ Catálogo completo regenerado con ${vehicleIds.length} vehículos`);
+    return `https://copiloto-crm-1764216245.web.app/public/menu/${FULL_INVENTORY_ID}`;
+
+  } catch (error) {
+    console.error("Error regenerando catálogo completo:", error);
+    // Fallback URL aunque falle la regeneración
+    return `https://copiloto-crm-1764216245.web.app/public/menu/${FULL_INVENTORY_ID}`;
   }
 }
 
@@ -283,6 +329,12 @@ export const receiveWhatsapp = functions.https.onRequest(async (req, res) => {
               details: fullText
             })
           });
+        }
+
+        // CATÁLOGO COMPLETO
+        if (accion === "ENVIAR_CATALOGO_COMPLETO") {
+          const catalogoUrl = await obtenerOCrearCatalogoCompleto(db);
+          finalMessage += `\n\n🚗 Acá podés ver todo nuestro stock actualizado:\n${catalogoUrl}`;
         }
       }
 

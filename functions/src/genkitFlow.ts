@@ -1,11 +1,4 @@
-import { genkit, z } from "genkit";
-import { googleAI } from "@genkit-ai/googleai";
-
-// Inicializar Genkit con Google AI
-const ai = genkit({
-    plugins: [googleAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY })],
-    model: "googleai/gemini-2.0-flash-lite-preview-02-05", // Usamos el modelo solicitado
-});
+import { z } from "zod";
 
 // Esquemas
 const VehiculoSchema = z.object({
@@ -47,9 +40,9 @@ export const CopilotoOutputSchema = z.object({
     }),
     respuesta_cliente: z.object({
         mensaje_whatsapp: z.string(),
-        media_url: z.string().nullable().optional(), // Mantenemos para compatibilidad
-        media_urls: z.array(z.string()).optional(), // Nuevo: Carrusel
-        accion_sugerida_app: z.enum(["ABRIR_CALCULADORA", "ENVIAR_FICHA", "SOLO_RESPONDER", "CREAR_TAREA", "CREAR_NOTA", "ENVIAR_TASACION"])
+        media_url: z.string().nullable().optional(),
+        media_urls: z.array(z.string()).optional(),
+        accion_sugerida_app: z.enum(["ABRIR_CALCULADORA", "ENVIAR_FICHA", "SOLO_RESPONDER", "CREAR_TAREA", "CREAR_NOTA", "ENVIAR_TASACION", "ENVIAR_CATALOGO_COMPLETO"])
     }),
     razonamiento: z.string()
 });
@@ -57,16 +50,30 @@ export const CopilotoOutputSchema = z.object({
 export type CerebroVentasInput = z.infer<typeof CerebroVentasInputSchema>;
 export type CerebroVentasOutput = z.infer<typeof CopilotoOutputSchema>;
 
-// Definir el Flujo
-export const ejecutarCerebroVentas = ai.defineFlow(
-    {
-        name: "cerebroVentas",
-        inputSchema: CerebroVentasInputSchema,
-        outputSchema: CopilotoOutputSchema,
-    },
-    async (input) => {
-        // Construir el prompt del sistema + contexto
-        const sistemaPrompt = `
+// LAZY LOADING EXTREMO: Dynamic Imports
+let aiInstance: any = null;
+
+async function getAI() {
+    if (!aiInstance) {
+        console.log('🔄 Inicializando Genkit (Dynamic Import)...');
+        // Importamos dinámicamente para que Firebase Trigger Analysis no cargue estos módulos pesados
+        const { genkit } = await import("genkit");
+        const { googleAI } = await import("@genkit-ai/googleai");
+
+        aiInstance = genkit({
+            plugins: [googleAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY })],
+            model: "googleai/gemini-2.0-flash-lite-preview-02-05",
+        });
+    }
+    return aiInstance;
+}
+
+// Función wrapper
+export async function ejecutarCerebroVentas(input: CerebroVentasInput): Promise<CerebroVentasOutput> {
+    const ai = await getAI(); // Inicialización asíncrona
+
+    // Construir el prompt del sistema + contexto
+    const sistemaPrompt = `
 ERES "COPILOTO", UN VENDEDOR DE AUTOS EXPERTO Y CERCANO.
 Tu objetivo es concretar visitas y ventas.
 
@@ -87,7 +94,11 @@ Tu objetivo es concretar visitas y ventas.
 4. **TASACIÓN:**
    - Si dicen "tengo un auto para entregar" y piden formulario, pon "accion_sugerida_app": "ENVIAR_TASACION".
    - El sistema se encargará de generar el link.
-5. **DIRECCIÓN:** Si coordinas cita, pasa la dirección explícita.
+5. **CATÁLOGO COMPLETO:**
+   - Si el cliente pregunta "¿Qué tenés?", "Pasame la lista", "Quiero ver todo" o no busca nada específico:
+   - Pon "accion_sugerida_app": "ENVIAR_CATALOGO_COMPLETO".
+   - En el mensaje di algo como: "Acá te dejo el acceso a todo nuestro stock." (NO inventes links, el sistema lo pega).
+6. **DIRECCIÓN:** Si coordinas cita, pasa la dirección explícita.
 
 CONTEXTO DE INVENTARIO (con imageUrls):
 ${JSON.stringify(input.inventario || [], null, 2)}
@@ -99,16 +110,15 @@ MENSAJE ACTUAL DEL CLIENTE:
 "${input.mensaje_actual}"
 `;
 
-        // Generar respuesta estructurada
-        const { output } = await ai.generate({
-            prompt: sistemaPrompt,
-            output: { schema: CopilotoOutputSchema },
-        });
+    // Generar respuesta estructurada
+    const { output } = await ai.generate({
+        prompt: sistemaPrompt,
+        output: { schema: CopilotoOutputSchema },
+    });
 
-        if (!output) {
-            throw new Error("Genkit no generó una salida válida");
-        }
-
-        return output;
+    if (!output) {
+        throw new Error("Genkit no generó una salida válida");
     }
-);
+
+    return output;
+}

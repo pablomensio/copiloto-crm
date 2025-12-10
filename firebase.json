@@ -1,8 +1,26 @@
 {
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs20"
-  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    },
+    {
+      "source": "functions-og",
+      "codebase": "og",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ],
   "hosting": {
     "public": "dist",
     "ignore": [
@@ -11,6 +29,10 @@
       "**/node_modules/**"
     ],
     "rewrites": [
+      {
+        "source": "/public/car/**",
+        "function": "servePublicVehicle"
+      },
       {
         "source": "/assets/**",
         "destination": "/assets/**"
@@ -21,7 +43,7 @@
       },
       {
         "source": "**",
-        "function": "app"
+        "destination": "/index.html"
       }
     ]
   }
