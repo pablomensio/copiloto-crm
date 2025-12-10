@@ -15,6 +15,7 @@ const VehiculoSchema = z.object({
     precio: z.any().optional(),
     url: z.string().optional(),
     imageUrl: z.string().optional(),
+    imageUrls: z.array(z.string()).optional(),
     // Agrega más campos si los tienes disponibles en el objeto inventario
 });
 
@@ -46,8 +47,9 @@ export const CopilotoOutputSchema = z.object({
     }),
     respuesta_cliente: z.object({
         mensaje_whatsapp: z.string(),
-        media_url: z.string().nullable().optional(),
-        accion_sugerida_app: z.enum(["ABRIR_CALCULADORA", "ENVIAR_FICHA", "SOLO_RESPONDER"])
+        media_url: z.string().nullable().optional(), // Mantenemos para compatibilidad
+        media_urls: z.array(z.string()).optional(), // Nuevo: Carrusel
+        accion_sugerida_app: z.enum(["ABRIR_CALCULADORA", "ENVIAR_FICHA", "SOLO_RESPONDER", "CREAR_TAREA", "CREAR_NOTA", "ENVIAR_TASACION"])
     }),
     razonamiento: z.string()
 });
@@ -73,16 +75,21 @@ Tu objetivo es concretar visitas y ventas.
 - Horarios: Lunes a Viernes 9-18hs, Sábados 9-13hs.
 - Web: https://copiloto-crm-1764216245.web.app
 
-### REGLAS DE RESPUESTA (CRÍTICAS):
-1. **MEMORIA Y SALUDO:** Revisa el historial. Si ya saludaste hace poco, NO VUELVAS A DECIR "¡Hola!". Ve directo al grano.
-2. **FOTOS:** Si el cliente pide fotos, detalles o "ver el auto":
-   - Pon la URL de la imagen (campo 'imageUrl' del inventario) en el campo "media_url" de tu respuesta.
-   - En "mensaje_whatsapp" escribe un texto corto como "Acá tenés las fotos del Toyota RAV4 🚗"
-3. **EXTRAER DATOS:** Si el cliente menciona su nombre, apellídelo o email, extráelos en "datos_extraidos" y pon "accion_lead": "CREAR" o "ACTUALIZAR".
-4. **DIRECCIÓN:** Si coordinas una visita, escribe explícitamente la dirección y horario.
-5. **INVENTARIO:** Si el auto que piden no está en la lista JSON, di que no lo tenés y ofrece similares.
 
-CONTEXTO DE INVENTARIO (con imageUrl para fotos):
+### REGLAS DE RESPUESTA (CRÍTICAS):
+1. **MEMORIA Y SALUDO:** Revisa el historial. Si ya saludaste hace poco, NO VUELVAS A DECIR "¡Hola!".
+2. **FOTOS MÚLTIPLES:** Si el cliente pide fotos, busca las URLs en 'imageUrls' del inventario.
+   - Si hay varias, ponlas en "media_urls" (máximo 3).
+   - En el texto, invita a ver más en la web.
+3. **TAREAS Y NOTAS:**
+   - Si el cliente dice "llamame a las 18hs", pon "accion_sugerida_app": "CREAR_TAREA" y en el mensaje confirma la acción.
+   - Si da un dato clave (ej: "tengo un Peugeot 208 para entregar"), pon "CREAR_NOTA".
+4. **TASACIÓN:**
+   - Si dicen "tengo un auto para entregar" y piden formulario, pon "accion_sugerida_app": "ENVIAR_TASACION".
+   - El sistema se encargará de generar el link.
+5. **DIRECCIÓN:** Si coordinas cita, pasa la dirección explícita.
+
+CONTEXTO DE INVENTARIO (con imageUrls):
 ${JSON.stringify(input.inventario || [], null, 2)}
 
 HISTORIAL CHAT (Dialogo Previo, con Roles):

@@ -10,16 +10,14 @@ async function obtenerInventarioActualizado() {
     const snapshot = await db.collection("vehicles").limit(20).get();
     return snapshot.docs.map(doc => {
       const data = doc.data();
-      const precioBase = data.price || 0;
-      const MARKUP_BOT = 800000; // Recargo automático para precios del bot
       return {
         id: doc.id,
         modelo: `${data.make} ${data.model} ${data.year}`,
         año: data.year,
-        precio: precioBase + MARKUP_BOT,
-        precioFormateado: `$${(precioBase + MARKUP_BOT).toLocaleString('es-AR')}`,
+        precio: data.price,
         url: `https://copiloto-crm-1764216245.web.app/?vehicle=${doc.id}`,
-        imageUrl: data.imageUrl || (data.imageUrls && data.imageUrls[0]) || null
+        imageUrl: data.imageUrl || (data.imageUrls && data.imageUrls[0]) || null,
+        imageUrls: data.imageUrls || [] // Agregamos lista completa para carrusel
       };
     });
   } catch (error) {
@@ -31,7 +29,7 @@ async function obtenerInventarioActualizado() {
 export async function enviarMensajeWhatsApp(
   to: string,
   message: string,
-  mediaUrl?: string | null
+  mediaUrls?: string[] | null
 ) {
   const productId = process.env.MAYTAPI_PRODUCT_ID;
   const token = process.env.MAYTAPI_TOKEN;
@@ -50,17 +48,17 @@ export async function enviarMensajeWhatsApp(
       "Content-Type": "application/json"
     };
 
-    // Si hay mediaUrl, enviamos primero la imagen y luego el texto
-    if (mediaUrl) {
-      // Enviar imagen
-      await axios.post(url, {
-        to_number: to,
-        type: "media",
-        message: mediaUrl
-      }, { headers });
-
-      // Pequeño delay para que llegue en orden
-      await new Promise(resolve => setTimeout(resolve, 500));
+    // Si hay mediaUrls, enviamos cada imagen
+    if (mediaUrls && mediaUrls.length > 0) {
+      for (const mediaUrl of mediaUrls) {
+        await axios.post(url, {
+          to_number: to,
+          type: "media",
+          message: mediaUrl
+        }, { headers });
+        // Delay para evitar rate limits o desorden
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
     }
 
     // Enviar mensaje de texto
@@ -232,11 +230,56 @@ export const receiveWhatsapp = functions.https.onRequest(async (req, res) => {
         chatId
       );
 
-      // Enviar respuesta con foto si la IA la incluyó
+      // 2. Gestionar acciones especiales (Tareas, Notas, Tasación)
+      let finalMessage = response.respuesta_cliente.mensaje_whatsapp;
+      const accion = response.respuesta_cliente.accion_sugerida_app;
+
+      if (leadResult && leadResult.leadId) {
+        // TASACIÓN: Generar link (placeholder por ahora)
+        if (accion === "ENVIAR_TASACION") {
+          const tradeInLink = `https://copiloto-crm-1764216245.web.app/public/trade-in?leadId=${leadResult.leadId}`;
+          finalMessage += `\n\n📝 Completá los datos de tu vehículo aquí: ${tradeInLink}`;
+        }
+
+        // TAREA: "Llamar el viernes"
+        if (accion === "CREAR_TAREA") {
+          await db.collection("tasks").add({
+            title: `Seguimiento WhatsApp: ${leadResult.leadId}`,
+            description: `El cliente pidió: "${fullText}"`,
+            status: "Pending",
+            priority: "Medium",
+            dueDate: admin.firestore.Timestamp.now(), // Por defecto hoy
+            leadId: leadResult.leadId,
+            assignedTo: "bot", // O ID de un vendedor default
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          console.log("✅ Tarea creada para el lead:", leadResult.leadId);
+        }
+
+        // NOTA: Información relevante
+        if (accion === "CREAR_NOTA" || accion === "CREAR_TAREA") {
+          const noteRef = db.collection("leads").doc(leadResult.leadId).collection("notes");
+          await noteRef.add({
+            content: `🤖 Nota IA: ${response.razonamiento}`,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            author: "Copiloto Bot"
+          });
+        }
+      }
+
+      // 3. Preparar URLs de medios (compatibilidad con single y array)
+      let mediaUrlsToSend: string[] = [];
+      if (response.respuesta_cliente.media_urls) {
+        mediaUrlsToSend = response.respuesta_cliente.media_urls;
+      } else if (response.respuesta_cliente.media_url) {
+        mediaUrlsToSend = [response.respuesta_cliente.media_url];
+      }
+
+      // 4. Enviar respuesta final
       await enviarMensajeWhatsApp(
         from,
-        response.respuesta_cliente.mensaje_whatsapp,
-        response.respuesta_cliente.media_url
+        finalMessage,
+        mediaUrlsToSend.length > 0 ? mediaUrlsToSend : null
       );
 
       const batch = db.batch();
@@ -253,10 +296,10 @@ export const receiveWhatsapp = functions.https.onRequest(async (req, res) => {
       const botMsgRef = chatRef.collection("history").doc();
       batch.set(botMsgRef, {
         role: "assistant",
-        content: response.respuesta_cliente.mensaje_whatsapp,
+        content: finalMessage,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         metadata: response,
-        mediaUrl: response.respuesta_cliente.media_url || null
+        mediaUrls: mediaUrlsToSend
       });
 
       // Vincular chat con lead si existe
