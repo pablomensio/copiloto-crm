@@ -10,11 +10,14 @@ async function obtenerInventarioActualizado() {
     const snapshot = await db.collection("vehicles").limit(20).get();
     return snapshot.docs.map(doc => {
       const data = doc.data();
+      const precioBase = data.price || 0;
+      const MARKUP_BOT = 800000; // Recargo automático para precios del bot
       return {
         id: doc.id,
         modelo: `${data.make} ${data.model} ${data.year}`,
         año: data.year,
-        precio: data.price,
+        precio: precioBase + MARKUP_BOT,
+        precioFormateado: `$${(precioBase + MARKUP_BOT).toLocaleString('es-AR')}`,
         url: `https://copiloto-crm-1764216245.web.app/?vehicle=${doc.id}`,
         imageUrl: data.imageUrl || (data.imageUrls && data.imageUrls[0]) || null
       };
@@ -88,19 +91,33 @@ async function gestionarLead(
   let leadRef: admin.firestore.DocumentReference;
 
   if (!existingLeadQuery.empty) {
-    // Lead ya existe
+    // Lead ya existe - actualizar si hay datos nuevos
     leadRef = existingLeadQuery.docs[0].ref;
     leadId = leadRef.id;
-  } else if (gestionLead.accion_lead === "CREAR" || gestionLead.accion_lead === "ACTUALIZAR") {
-    // Crear nuevo lead
+    console.log(`Lead existente encontrado: ${leadId}`);
+
+    // Actualizar con datos extraídos si los hay
+    if (gestionLead.datos_extraidos) {
+      const updates: any = {};
+      if (gestionLead.datos_extraidos.nombre) updates.name = gestionLead.datos_extraidos.nombre;
+      if (gestionLead.datos_extraidos.email) updates.email = gestionLead.datos_extraidos.email;
+      if (gestionLead.actualizaciones_estado?.estado) updates.status = gestionLead.actualizaciones_estado.estado;
+      if (Object.keys(updates).length > 0) {
+        await leadRef.update(updates);
+        console.log(`Lead actualizado con:`, updates);
+      }
+    }
+  } else {
+    // Lead NO existe - SIEMPRE crear uno nuevo en primer contacto
+    const nombreExtraido = gestionLead.datos_extraidos?.nombre || null;
     const nuevoLead = {
       phone: telefono,
-      name: gestionLead.datos_extraidos?.nombre || "Sin nombre",
-      status: gestionLead.actualizaciones_estado?.estado || "NUEVO",
+      name: nombreExtraido || "Cliente WhatsApp",
+      status: "NUEVO",
       interestLevel: "Medium",
       budget: 0,
       interestedVehicleId: "",
-      avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(gestionLead.datos_extraidos?.nombre || "Cliente")}&background=random`,
+      avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(nombreExtraido || "WA")}&background=6366f1&color=fff`,
       history: [],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       source: "WhatsApp",
@@ -108,21 +125,7 @@ async function gestionarLead(
     };
     leadRef = await leadsRef.add(nuevoLead);
     leadId = leadRef.id;
-    console.log(`Nuevo lead creado: ${leadId}`);
-  } else {
-    // No hay acción de lead, retornar null
-    return null;
-  }
-
-  // Actualizar datos si hay información nueva
-  if (gestionLead.accion_lead === "ACTUALIZAR" && gestionLead.datos_extraidos) {
-    const updates: any = {};
-    if (gestionLead.datos_extraidos.nombre) updates.name = gestionLead.datos_extraidos.nombre;
-    if (gestionLead.datos_extraidos.email) updates.email = gestionLead.datos_extraidos.email;
-    if (gestionLead.actualizaciones_estado?.estado) updates.status = gestionLead.actualizaciones_estado.estado;
-    if (Object.keys(updates).length > 0) {
-      await leadRef.update(updates);
-    }
+    console.log(`✅ Nuevo lead creado automáticamente: ${leadId} para teléfono ${telefono}`);
   }
 
   return { leadId, leadRef };
