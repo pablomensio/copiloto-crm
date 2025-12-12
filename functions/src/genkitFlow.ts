@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SYSTEM_INSTRUCTION } from "./prompts";
 
 // Esquemas
 const VehiculoSchema = z.object({
@@ -55,14 +56,20 @@ let aiInstance: any = null;
 
 async function getAI() {
     if (!aiInstance) {
-        console.log('🔄 Inicializando Genkit (Dynamic Import)...');
+        console.log('🔄 Inicializando Genkit con Vertex AI (Modelo Entrenado: entrenamiento)...');
         // Importamos dinámicamente para que Firebase Trigger Analysis no cargue estos módulos pesados
         const { genkit } = await import("genkit");
-        const { googleAI } = await import("@genkit-ai/googleai");
+        const { vertexAI } = await import("@genkit-ai/vertexai");
 
         aiInstance = genkit({
-            plugins: [googleAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY })],
-            model: "googleai/gemini-2.0-flash-lite-preview-02-05",
+            plugins: [
+                vertexAI({
+                    location: 'us-central1',
+                    projectId: 'copiloto-crm-1764216245'
+                })
+            ],
+            // Modelo entrenado en Vertex AI
+            model: "vertexai/projects/127628700164/locations/us-central1/models/1994996778390257664",
         });
     }
     return aiInstance;
@@ -73,40 +80,17 @@ export async function ejecutarCerebroVentas(input: CerebroVentasInput): Promise<
     const ai = await getAI(); // Inicialización asíncrona
 
     // Construir el prompt del sistema + contexto
+    // Combinamos la instrucción maestra con los datos en tiempo real
     const sistemaPrompt = `
-ERES "COPILOTO", UN VENDEDOR DE AUTOS EXPERTO Y CERCANO.
-Tu objetivo es concretar visitas y ventas.
+${SYSTEM_INSTRUCTION}
 
-### TUS DATOS (AGENCIA):
-- Dirección: Av. Rafael Núñez 4500, Córdoba.
-- Horarios: Lunes a Viernes 9-18hs, Sábados 9-13hs.
-- Web: https://copiloto-crm-1764216245.web.app
-
-
-### REGLAS DE RESPUESTA (CRÍTICAS):
-1. **MEMORIA Y SALUDO:** Revisa el historial. Si ya saludaste hace poco, NO VUELVAS A DECIR "¡Hola!".
-2. **FOTOS MÚLTIPLES:** Si el cliente pide fotos, busca las URLs en 'imageUrls' del inventario.
-   - Si hay varias, ponlas en "media_urls" (máximo 3).
-   - En el texto, invita a ver más en la web.
-3. **TAREAS Y NOTAS:**
-   - Si el cliente dice "llamame a las 18hs", pon "accion_sugerida_app": "CREAR_TAREA" y en el mensaje confirma la acción.
-   - Si da un dato clave (ej: "tengo un Peugeot 208 para entregar"), pon "CREAR_NOTA".
-4. **TASACIÓN:**
-   - Si dicen "tengo un auto para entregar" y piden formulario, pon "accion_sugerida_app": "ENVIAR_TASACION".
-   - El sistema se encargará de generar el link.
-5. **CATÁLOGO COMPLETO:**
-   - Si el cliente pregunta "¿Qué tenés?", "Pasame la lista", "Quiero ver todo" o no busca nada específico:
-   - Pon "accion_sugerida_app": "ENVIAR_CATALOGO_COMPLETO".
-   - En el mensaje di algo como: "Acá te dejo el acceso a todo nuestro stock." (NO inventes links, el sistema lo pega).
-6. **DIRECCIÓN:** Si coordinas cita, pasa la dirección explícita.
-
-CONTEXTO DE INVENTARIO (con imageUrls):
+### CONTEXTO DE INVENTARIO (Actualizado):
 ${JSON.stringify(input.inventario || [], null, 2)}
 
-HISTORIAL CHAT (Dialogo Previo, con Roles):
+### HISTORIAL CHAT (Dialogo Previo, con Roles):
 ${input.historial_chat.join("\n")}
 
-MENSAJE ACTUAL DEL CLIENTE:
+### MENSAJE ACTUAL DEL CLIENTE:
 "${input.mensaje_actual}"
 `;
 
