@@ -170,3 +170,49 @@ export interface SellerProfile {
   businessHours?: string;
 }
 
+// Multi-Tenant Organization
+export interface Organization {
+  id: string;
+  name: string;
+  businessType: 'concesionario' | 'reventa' | 'agencia';
+  plan: 'basic' | 'pro' | 'enterprise';
+  ownerId: string; // User ID del propietario
+  createdAt: string;
+  active: boolean;
+  settings: {
+    maxUsers: number;
+    maxWhatsAppNumbers: number;
+    maxVehicles: number;
+  };
+  whatsappConfig?: {
+    phoneNumber: string;
+    maytapiProductId?: string;
+    maytapiPhoneId?: string;
+    apiKey?: string;
+    configuredAt?: string;
+  };
+  deposits?: string[]; // IDs de depósitos (ej: ['hum001', 'pilar002'])
+  billing: {
+    plan: 'basic' | 'pro' | 'enterprise';
+    status: 'trial' | 'active' | 'suspended' | 'cancelled';
+    trialEndsAt?: string;
+    nextBillingDate?: string;
+  };
+  onboardingCompleted?: boolean;
+  onboardingCompletedAt?: string;
+}
+
+// User Profile (vinculado a una organización)
+export interface UserProfile {
+  id: string; // Mismo que el UID de Firebase Auth
+  organizationId: string;
+  email: string;
+  displayName: string;
+  phone?: string;
+  role: 'admin' | 'supervisor' | 'vendedor' | 'reventa';
+  createdAt: string;
+  avatarUrl?: string;
+  assignedDeposits?: string[]; // Depósitos asignados (si está vacío, ve todos)
+  active: boolean;
+}
+
