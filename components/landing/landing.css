@@ -36,7 +36,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4rem 8%;
+    padding: 8rem 8% 4rem 8%;
+    /* Padding top aumentado para el navbar */
     overflow: hidden;
     background: linear-gradient(135deg, #080808 0%, #0a0a0a 50%, #050505 100%);
 }
