@@ -159,7 +159,7 @@ export interface MultiBudget {
   sharedVia: 'whatsapp' | 'email' | 'link';
 }
 
-export type AppView = 'dashboard' | 'inventory' | 'vehicle_detail' | 'budget_calculator' | 'markup' | 'calendar' | 'tasks' | 'menus' | 'public_menu' | 'menu_editor' | 'public_vehicle' | 'public_budget' | 'multi_budget';
+export type AppView = 'landing' | 'login' | 'register' | 'dashboard' | 'inventory' | 'vehicle_detail' | 'budget_calculator' | 'markup' | 'calendar' | 'tasks' | 'menus' | 'public_menu' | 'menu_editor' | 'public_vehicle' | 'public_budget' | 'multi_budget';
 
 export interface SellerProfile {
   name: string;

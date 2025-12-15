@@ -24,13 +24,14 @@ import MultiBudgetSelector from './components/MultiBudgetSelector';
 import MultiBudgetModal from './components/MultiBudgetModal';
 import PublicMultiBudgetView from './components/PublicMultiBudgetView';
 import TradeInAppraisalModal from './components/TradeInAppraisalModal';
+import LandingPage from './components/landing/LandingPage';
 import { Zap, LayoutDashboard, Car, Menu as MenuIcon, X, Edit, Calculator, TrendingUp, Database, AlertTriangle, Calendar as CalendarIcon, CheckSquare, LogOut } from 'lucide-react';
 import { fetchVehicles, fetchLeads, fetchTasks, fetchMenus, saveVehicle, saveLead, saveVehiclesBatch, saveTask, saveMenu, incrementMenuView, seedInitialData, getMenu, auth, signOut, deleteVehicle, trackBudgetView, saveMultiBudget, getMultiBudget, trackMultiBudgetView } from './services/firebase';
 import { saveAppraisal } from './services/appraisalService';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<AppView>('dashboard');
+  const [currentView, setCurrentView] = useState<AppView>('landing');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -174,7 +175,12 @@ const App: React.FC = () => {
         setCurrentUser(user);
         // Only set default view if NOT a public view
         if (!isPublicView) {
-          // Stay on dashboard or whatever default
+          setCurrentView('dashboard');
+        }
+      } else {
+        // No user logged in and no public view - show landing
+        if (!isPublicView) {
+          setCurrentView('landing');
         }
       }
 
@@ -610,6 +616,18 @@ const App: React.FC = () => {
     }
 
     switch (currentView) {
+      case 'landing':
+        return (
+          <LandingPage
+            onLogin={() => setCurrentView('login')}
+            onRegister={() => setCurrentView('register')}
+          />
+        );
+      case 'login':
+        return <LoginView onLoginSuccess={() => setCurrentView('dashboard')} />;
+      case 'register':
+        // Aquí puedes agregar tu componente de registro cuando lo tengas
+        return <LoginView onLoginSuccess={() => setCurrentView('dashboard')} />;
       case 'dashboard':
         return (
           <DashboardView
@@ -722,14 +740,19 @@ const App: React.FC = () => {
     }
   };
 
+  // If in Landing Page, Login or Register, render without Sidebar
+  if (currentView === 'landing' || currentView === 'login' || currentView === 'register') {
+    return renderContent();
+  }
+
   // If in Public Menu Mode, render simplified layout without Sidebar
   if (currentView === 'public_menu' || currentView === 'public_vehicle' || currentView === 'multi_budget') {
     return renderContent();
   }
 
-  // If not logged in and not loading, show Login View
+  // If not logged in and not loading, show Landing Page
   if (!currentUser && !authLoading && (currentView as string) !== 'public_menu' && (currentView as string) !== 'public_vehicle') {
-    return <LoginView onLoginSuccess={() => { }} />;
+    return renderContent(); // Will show landing by default
   }
 
   return (
