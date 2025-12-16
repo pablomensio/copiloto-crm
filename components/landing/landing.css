@@ -690,7 +690,7 @@
     background: var(--card-bg);
     border: 2px solid var(--card-border);
     border-radius: 20px;
-    padding: 2.5rem;
+    padding: 2rem 1.5rem;
     position: relative;
     transition: all 0.4s ease;
     display: flex;
@@ -968,6 +968,8 @@
         flex-direction: column;
         text-align: center;
         padding: 3rem 5%;
+        gap: 3rem;
+        min-height: auto;
     }
 
     .hero-content {
@@ -975,9 +977,9 @@
     }
 
     .ia-3d-visual {
-        width: 400px;
-        height: 400px;
-        margin-top: 3rem;
+        width: 350px;
+        height: 350px;
+        margin: 0 auto;
     }
 
     .cta-group {
@@ -986,8 +988,41 @@
 }
 
 @media (max-width: 768px) {
+    .hero-section {
+        padding: 2rem 5%;
+        gap: 2rem;
+    }
+
     .headline-glitch {
-        font-size: 2.5rem;
+        font-size: 2rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .animated-gradient-text {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .subhead {
+        font-size: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .ia-3d-visual {
+        width: 280px;
+        height: 280px;
+    }
+
+    .cta-group {
+        flex-direction: column;
+        width: 100%;
+        gap: 1rem;
+    }
+
+    .cta-primary,
+    .cta-secondary {
+        width: 100%;
+        text-align: center;
     }
 
     .section-title {
@@ -1004,11 +1039,6 @@
         transform: scale(1);
     }
 
-    .ia-3d-visual {
-        width: 300px;
-        height: 300px;
-    }
-
     .pricing-section,
     .features-section,
     .testimonials-section,
@@ -1018,5 +1048,24 @@
 
     .final-cta-section {
         padding: 6rem 5%;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-section {
+        padding: 1.5rem 5%;
+    }
+
+    .headline-glitch {
+        font-size: 1.75rem;
+    }
+
+    .ia-3d-visual {
+        width: 240px;
+        height: 240px;
+    }
+
+    .plan-card {
+        padding: 2rem 1.5rem;
     }
 }

@@ -1,13 +1,18 @@
 import React from 'react';
+import GradientText from './GradientText';
 
 const HeroSection: React.FC = () => {
     return (
         <section className="hero-section">
             <div className="hero-content">
-                <h1 className="headline-glitch">
-                    DEJE DE PERDER EL{' '}
-                    <span className="accent-text">65% DE SUS LEADS</span>
-                </h1>
+                <GradientText
+                    colors={["#00FFFF", "#007BFF", "#00FFFF", "#007BFF", "#00FFFF"]}
+                    animationSpeed={3}
+                    showBorder={false}
+                    className="headline-glitch"
+                >
+                    DEJE DE PERDER EL <span className="accent-text">65%</span> DE SUS LEADS.
+                </GradientText>
 
                 <p className="subhead">
                     <strong>Copiloto CRM</strong> es el único sistema que le da un <strong>Vendedor de IA 24/7</strong>.
