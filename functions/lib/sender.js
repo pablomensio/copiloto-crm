@@ -5,6 +5,7 @@ const maytapiClient_1 = require("./maytapiClient");
 const evolutionClient_1 = require("./evolutionClient");
 async function sendWhatsAppMessage(to, message, mediaUrls) {
     const provider = process.env.WHATSAPP_PROVIDER || 'maytapi';
+    console.log(`[Sender] Routing message via: ${provider.toUpperCase()}`);
     if (provider === 'evolution') {
         await (0, evolutionClient_1.sendEvolutionMessage)(to, message, mediaUrls);
     }

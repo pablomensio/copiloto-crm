@@ -26,7 +26,7 @@ async function obtenerInventarioActualizado() {
 }
 
 async function obtenerOCrearCatalogoCompleto(db: admin.firestore.Firestore): Promise<string> {
-    const FULL_INVENTORY_ID = "__FULL_INVENTORY__";
+    const FULL_INVENTORY_ID = "FULL_INVENTORY_CATALOG"; // Cambiado de __FULL_INVENTORY__ (reservado)
     const menuRef = db.collection("menus").doc(FULL_INVENTORY_ID);
 
     const doc = await menuRef.get();

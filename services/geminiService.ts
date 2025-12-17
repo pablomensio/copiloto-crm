@@ -114,7 +114,7 @@ export const analyzeLead = async (lead: Lead, vehicle: Vehicle): Promise<Analysi
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         systemInstruction: LEAD_ANALYSIS_INSTRUCTION,
@@ -166,7 +166,7 @@ export const generateVehicleDescription = async (vehicleData: Partial<Vehicle>):
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         systemInstruction: VEHICLE_DESCRIPTION_INSTRUCTION,

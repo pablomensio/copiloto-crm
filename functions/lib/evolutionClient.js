@@ -47,11 +47,11 @@ async function sendEvolutionMessage(to, message, mediaUrls) {
         if (message) {
             // Endpoint para texto: /message/sendText/{instance}
             const url = `${apiUrl}/message/sendText/${instanceName}`;
+            // Evolution v2.3.6 acepta número con o sin sufijo, pero mejor ser explícitos
+            const numberWithJid = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
             await axios_1.default.post(url, {
-                number: cleanPhone,
-                textMessage: {
-                    text: message
-                },
+                number: numberWithJid,
+                text: message,
                 options: {
                     delay: 1000,
                     presence: "composing"

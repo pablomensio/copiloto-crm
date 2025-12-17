@@ -7,6 +7,7 @@ export async function sendWhatsAppMessage(
     mediaUrls?: string[] | null
 ) {
     const provider = process.env.WHATSAPP_PROVIDER || 'maytapi';
+    console.log(`[Sender] Routing message via: ${provider.toUpperCase()}`);
 
     if (provider === 'evolution') {
         await sendEvolutionMessage(to, message, mediaUrls);

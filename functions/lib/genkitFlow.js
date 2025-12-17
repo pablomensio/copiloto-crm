@@ -74,19 +74,20 @@ exports.CopilotoOutputSchema = zod_1.z.object({
 let aiInstance = null;
 async function getAI() {
     if (!aiInstance) {
-        console.log('🔄 Inicializando Genkit con Vertex AI (Modelo Entrenado: entrenamiento)...');
+        console.log('🔄 Inicializando Genkit con Google AI (gemini-2.0-flash-exp)...');
         // Importamos dinámicamente para que Firebase Trigger Analysis no cargue estos módulos pesados
         const { genkit } = await Promise.resolve().then(() => __importStar(require("genkit")));
-        const { vertexAI } = await Promise.resolve().then(() => __importStar(require("@genkit-ai/vertexai")));
+        const { googleAI } = await Promise.resolve().then(() => __importStar(require("@genkit-ai/googleai")));
+        // Usar API Key de Google AI (desde environment variables)
+        const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+        if (!apiKey) {
+            throw new Error("GEMINI_API_KEY o GOOGLE_API_KEY no configurada en functions/.env");
+        }
         aiInstance = genkit({
             plugins: [
-                vertexAI({
-                    location: 'us-central1',
-                    projectId: 'copiloto-crm-1764216245'
-                })
+                googleAI({ apiKey })
             ],
-            // Modelo entrenado en Vertex AI
-            model: "vertexai/projects/127628700164/locations/us-central1/models/1994996778390257664",
+            model: "googleai/gemini-2.0-flash-exp",
         });
     }
     return aiInstance;
