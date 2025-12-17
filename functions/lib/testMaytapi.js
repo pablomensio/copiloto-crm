@@ -25,7 +25,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const dotenv = __importStar(require("dotenv"));
 dotenv.config();
-const whatsappReceiver_1 = require("./whatsappReceiver");
+const sender_1 = require("./sender");
 async function main() {
     console.log("Iniciando prueba de envío de WhatsApp via Maytapi...");
     const recipient = "5493517670440"; // User's number
@@ -36,7 +36,7 @@ async function main() {
     }
     console.log(`Enviando mensaje a ${recipient}...`);
     try {
-        await (0, whatsappReceiver_1.enviarMensajeWhatsApp)(recipient, message);
+        await (0, sender_1.sendWhatsAppMessage)(recipient, message);
         console.log("Mensaje enviado (función ejecutada).");
     }
     catch (e) {

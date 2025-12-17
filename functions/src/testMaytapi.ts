@@ -1,7 +1,7 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import { enviarMensajeWhatsApp } from './whatsappReceiver';
+import { sendWhatsAppMessage } from './sender';
 
 async function main() {
     console.log("Iniciando prueba de envío de WhatsApp via Maytapi...");
@@ -16,7 +16,7 @@ async function main() {
 
     console.log(`Enviando mensaje a ${recipient}...`);
     try {
-        await enviarMensajeWhatsApp(recipient, message);
+        await sendWhatsAppMessage(recipient, message);
         console.log("Mensaje enviado (función ejecutada).");
     } catch (e) {
         console.error("Error en test:", e);
