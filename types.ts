@@ -45,13 +45,14 @@ export interface TradeInAppraisal {
     model: string;
     year: number;
     mileage: number;
-    transmission: 'Automática' | 'Manual';
-    fuelType: 'Híbrido' | 'Gasolina' | 'Eléctrico' | 'Diesel';
+    transmission?: 'Automática' | 'Manual';
+    fuelType?: 'Híbrido' | 'Gasolina' | 'Eléctrico' | 'Diesel';
     condition: 'Excelente' | 'Muy Bueno' | 'Bueno' | 'Regular' | 'Malo';
-    observations: string;
-    photos?: string[]; // URLs from Firebase Storage
+    observations?: string;
+    imageUrls?: string[]; // Unified name
+    photos?: string[];    // Legacy support
   };
-  marketAnalysis: {
+  marketAnalysis?: {
     avg_price: number;
     min_price: number;
     max_price: number;
@@ -59,12 +60,13 @@ export interface TradeInAppraisal {
     sample_links: string[];
     analyzedAt: string; // ISO date
   };
-  offeredValue: number; // Final offered value (adjustable)
+  offeredValue?: number; // Final offered value (adjustable)
   vendorNotes?: string;
   pdfUrl?: string; // URL of generated PDF
+  notes?: string;
   createdAt: string;
-  createdBy: string; // userId
-  status: 'draft' | 'sent' | 'accepted' | 'rejected';
+  createdBy?: string; // userId
+  status: 'pending' | 'draft' | 'sent' | 'accepted' | 'rejected';
 }
 
 export interface Interaction {
@@ -101,6 +103,18 @@ export interface AnalysisCache {
   timestamp: number;
 }
 
+export enum FunnelStage {
+  NUEVO = 'NUEVO',           // Contacto inicial
+  INTERESADO = 'INTERESADO', // Consultó por stock o precios
+  CALIFICADO = 'CALIFICADO', // Proporcionó datos (nombre, usado, presupuesto)
+  NEGOCIACION = 'NEGOCIACION', // Recibió tasación o cálculo de cuotas
+  CITA_PENDIENTE = 'CITA_PENDIENTE', // Acordó venir pero no confirmó hora exacta
+  CITA_CONFIRMADA = 'CITA_CONFIRMADA', // Tarea de visita creada
+  DERIVADO = 'DERIVADO',     // Requiere intervención humana (Pablo)
+  CERRADO = 'CERRADO',       // Venta finalizada
+  PERDIDO = 'PERDIDO'        // Lead descartado
+}
+
 export interface Lead {
   id: string;
   name: string;
@@ -113,11 +127,13 @@ export interface Lead {
   // Extended fields for Chatbot/Public View
   phone?: string;
   source?: string;
-  status?: string;
+  status: FunnelStage;
+  funnelStage?: FunnelStage;
   menuId?: string;
   createdAt?: string;
   email?: string;
   nextFollowUp?: string; // ISO Date String
+  isHandledByHuman?: boolean;
 }
 
 export type Priority = 'High' | 'Medium' | 'Low';
@@ -159,7 +175,7 @@ export interface MultiBudget {
   sharedVia: 'whatsapp' | 'email' | 'link';
 }
 
-export type AppView = 'landing' | 'login' | 'register' | 'dashboard' | 'inventory' | 'vehicle_detail' | 'budget_calculator' | 'markup' | 'calendar' | 'tasks' | 'menus' | 'public_menu' | 'menu_editor' | 'public_vehicle' | 'public_budget' | 'multi_budget';
+export type AppView = 'landing' | 'login' | 'register' | 'dashboard' | 'inventory' | 'vehicle_detail' | 'budget_calculator' | 'markup' | 'calendar' | 'tasks' | 'menus' | 'public_menu' | 'menu_editor' | 'public_vehicle' | 'public_budget' | 'multi_budget' | 'trade_in';
 
 export interface SellerProfile {
   name: string;

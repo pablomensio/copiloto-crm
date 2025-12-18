@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lead } from '../types';
+import { Lead, FunnelStage } from '../types';
 import { User, DollarSign, Activity, Phone, MessageSquare, Mail, Clock } from 'lucide-react';
 
 interface LeadCardProps {
@@ -51,6 +51,13 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, active, onClick }) => {
                 'bg-gray-100 text-gray-700'
               }`}>
               {lead.interestLevel} Interest
+            </span>
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${lead.status === FunnelStage.DERIVADO ? 'bg-red-500 text-white animate-pulse' :
+              lead.status === FunnelStage.CITA_CONFIRMADA ? 'bg-indigo-600 text-white' :
+                lead.status === FunnelStage.NUEVO ? 'bg-blue-100 text-blue-700' :
+                  'bg-gray-200 text-gray-700'
+              }`}>
+              {lead.status}
             </span>
           </div>
           {lead.nextFollowUp && (

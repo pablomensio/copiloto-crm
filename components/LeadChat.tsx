@@ -2,6 +2,7 @@
 
 import { useEffect, useReducer, useState, FormEvent, useRef } from "react";
 import { saveLead } from "../services/firebase";
+import { FunnelStage } from "../types";
 import { cn } from "../lib/utils";
 
 type Message = {
@@ -159,7 +160,7 @@ export default function LeadChat({ menuId, carId, initialMessage }: LeadChatProp
         // Extended fields
         phone: state.phone,
         source: 'chatbot',
-        status: 'new',
+        status: FunnelStage.NUEVO,
         menuId: menuId || undefined,
         interestedVehicleId: carId || '', // Mapped from carId
         createdAt: new Date().toISOString(),

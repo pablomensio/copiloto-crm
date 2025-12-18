@@ -1,20 +1,22 @@
 
 import React, { useState } from 'react';
 import { Menu, Vehicle } from '../types';
-import { Plus, Eye, Copy, Trash2, ExternalLink, Menu as MenuIcon, Calendar } from 'lucide-react';
+import { Plus, Eye, Copy, Trash2, ExternalLink, Menu as MenuIcon, Calendar, Edit } from 'lucide-react';
 
 interface MenuManagementViewProps {
   menus: Menu[];
   vehicles: Record<string, Vehicle>;
   onCreateClick: () => void;
+  onEditClick: (menu: Menu) => void;
+  onDeleteClick: (menuId: string) => void;
 }
 
-const MenuManagementView: React.FC<MenuManagementViewProps> = ({ menus, vehicles, onCreateClick }) => {
+const MenuManagementView: React.FC<MenuManagementViewProps> = ({ menus, vehicles, onCreateClick, onEditClick, onDeleteClick }) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopyLink = (menuId: string) => {
-    // Construct local URL with query param
-    const url = `${window.location.origin}${window.location.pathname}?menu=${menuId}`;
+    // Construct OG-friendly URL
+    const url = `${window.location.origin}/public/menu/${menuId}`;
     navigator.clipboard.writeText(url);
     setCopiedId(menuId);
     setTimeout(() => setCopiedId(null), 2000);
@@ -93,14 +95,31 @@ const MenuManagementView: React.FC<MenuManagementViewProps> = ({ menus, vehicles
                       <button
                         onClick={() => handleCopyLink(menu.id)}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium border transition-all ${copiedId === menu.id
-                            ? 'bg-green-50 border-green-200 text-green-700'
-                            : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                          ? 'bg-green-50 border-green-200 text-green-700'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                           }`}
                       >
                         {copiedId === menu.id ? <ExternalLink size={16} /> : <Copy size={16} />}
-                        {copiedId === menu.id ? '¡Copiado!' : 'Copiar Link'}
+                        {copiedId === menu.id ? (copiedId === menu.id ? '¡Copiado!' : 'Copiado') : 'Link'}
                       </button>
-                      {/* Delete button could go here */}
+                      <button
+                        onClick={() => onEditClick(menu)}
+                        className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all"
+                        title="Editar"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm('¿Estás seguro de que quieres eliminar este catálogo?')) {
+                            onDeleteClick(menu.id);
+                          }
+                        }}
+                        className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium border border-red-100 text-red-600 hover:bg-red-50 transition-all"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
                 </div>

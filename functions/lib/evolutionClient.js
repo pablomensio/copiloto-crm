@@ -27,17 +27,13 @@ async function sendEvolutionMessage(to, message, mediaUrls) {
             for (const mediaUrl of mediaUrls) {
                 // Endpoint para media: /message/sendMedia/{instance}
                 const url = `${apiUrl}/message/sendMedia/${instanceName}`;
+                const numberWithJid = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
                 await axios_1.default.post(url, {
-                    number: cleanPhone,
-                    mediaMessage: {
-                        mediatype: "image",
-                        media: mediaUrl,
-                        caption: ""
-                    },
-                    options: {
-                        delay: 1000,
-                        presence: "composing"
-                    }
+                    number: numberWithJid,
+                    media: mediaUrl,
+                    mediatype: "image",
+                    caption: "",
+                    delay: 1200
                 }, { headers });
                 // Pequeño delay
                 await new Promise(resolve => setTimeout(resolve, 800));

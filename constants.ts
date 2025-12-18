@@ -1,4 +1,4 @@
-import { Lead, Vehicle, VehicleStatus, Task, BudgetCalculation } from './types';
+import { Lead, Vehicle, VehicleStatus, Task, BudgetCalculation, FunnelStage } from './types';
 
 export const INITIAL_VEHICLES: Record<string, Vehicle> = {
   'v1': {
@@ -82,6 +82,7 @@ export const LEADS: Lead[] = [
     interestLevel: 'High',
     interestedVehicleId: 'v1',
     avatarUrl: 'https://picsum.photos/100/100?random=10',
+    status: FunnelStage.NEGOCIACION,
     history: [
       { id: 'i1', type: 'call', date: twoDaysAgo, notes: 'Interesado en financiamiento' },
       { id: 'i2', type: 'pdf_sent', date: twoDaysAgo, details: 'Ficha Técnica RAV4' },
@@ -98,6 +99,7 @@ export const LEADS: Lead[] = [
     interestLevel: 'Medium',
     interestedVehicleId: 'v2',
     avatarUrl: 'https://picsum.photos/100/100?random=11',
+    status: FunnelStage.INTERESADO,
     history: [
       { id: 'i7', type: 'whatsapp', date: twoDaysAgo, notes: 'Preguntó disponibilidad' },
     ]
@@ -109,6 +111,7 @@ export const LEADS: Lead[] = [
     interestLevel: 'Low',
     interestedVehicleId: 'v3',
     avatarUrl: 'https://picsum.photos/100/100?random=12',
+    status: FunnelStage.NUEVO,
     history: [
       { id: 'i8', type: 'pdf_sent', date: twentyFiveHoursAgo, details: 'Cotización CR-V' }
     ]
@@ -120,6 +123,7 @@ export const LEADS: Lead[] = [
     interestLevel: 'Low',
     interestedVehicleId: 'v4',
     avatarUrl: 'https://picsum.photos/100/100?random=13',
+    status: FunnelStage.NUEVO,
     history: [
       { id: 'i9', type: 'call', date: sixDaysAgo, notes: 'Primer contacto' }
     ]

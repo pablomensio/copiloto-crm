@@ -210,40 +210,47 @@ export async function processIncomingMessage(
                 }
 
                 if (accion === "CREAR_TAREA") {
-                    const taskId = db.collection("tasks").doc().id;
-                    const now = new Date().toISOString();
-                    await db.collection("tasks").doc(taskId).set({
-                        id: taskId,
-                        title: `Seguimiento WhatsApp: ${fullText.substring(0, 50)}...`,
-                        description: `El cliente pidió: "${fullText}"`,
-                        date: now,
-                        isCompleted: false,
-                        priority: "Medium",
-                        type: "FollowUp",
-                        relatedLeadId: leadResult.leadId
-                    });
-                    await leadResult.leadRef.update({
-                        history: admin.firestore.FieldValue.arrayUnion({
-                            id: `task_${taskId}`,
-                            type: "note",
+                    // Solo crear tarea si hay intención real de cita o consulta avanzada
+                    const intencion = response.analisis_conversacional.intencion_detectada;
+                    const esCitaSegura = (intencion === "CITA" || intencion === "TASACION") &&
+                        (fullText.toLowerCase().includes("mañana") ||
+                            fullText.toLowerCase().includes("lunes") ||
+                            fullText.match(/\d+/) ||
+                            fullText.includes("hs"));
+
+                    if (esCitaSegura) {
+                        const taskId = db.collection("tasks").doc().id;
+                        const now = new Date().toISOString();
+                        await db.collection("tasks").doc(taskId).set({
+                            id: taskId,
+                            title: `Cita WhatsApp: ${fullText.substring(0, 30)}...`,
+                            description: `El cliente confirmó visita: "${fullText}"`,
                             date: now,
-                            notes: `🤖 Tarea creada: ${fullText}`,
-                            details: response.razonamiento
-                        })
-                    });
+                            isCompleted: false,
+                            priority: "High",
+                            type: "FollowUp",
+                            relatedLeadId: leadResult.leadId
+                        });
+                        console.log(`[CRM] Tarea creada para lead ${leadResult.leadId}`);
+                    }
                 }
 
                 if (accion === "CREAR_NOTA") {
-                    const now = new Date().toISOString();
-                    await leadResult.leadRef.update({
-                        history: admin.firestore.FieldValue.arrayUnion({
-                            id: `note_${Date.now()}`,
-                            type: "note",
-                            date: now,
-                            notes: `🤖 ${response.razonamiento}`,
-                            details: fullText
-                        })
-                    });
+                    // Solo crear nota si no es un simple saludo o dato trivial
+                    const razonamiento = response.razonamiento;
+                    if (razonamiento && razonamiento.length > 5 && !razonamiento.includes("saludo")) {
+                        const now = new Date().toISOString();
+                        await leadResult.leadRef.update({
+                            history: admin.firestore.FieldValue.arrayUnion({
+                                id: `note_${Date.now()}`,
+                                type: "note",
+                                date: now,
+                                notes: `🤖 ${response.razonamiento}`,
+                                details: fullText
+                            })
+                        });
+                        console.log(`[CRM] Nota creada para lead ${leadResult.leadId}`);
+                    }
                 }
 
                 if (accion === "ENVIAR_CATALOGO_COMPLETO") {
@@ -254,10 +261,32 @@ export async function processIncomingMessage(
 
             // Prepare Media
             let mediaUrlsToSend: string[] = [];
+            if (accion === "ENVIAR_FICHA") {
+                // Buscar el auto mencionado en el inventario para sacar la foto real
+                const vehiculosMencionados = response.analisis_conversacional.vehiculos_identificados;
+                if (vehiculosMencionados && vehiculosMencionados.length > 0) {
+                    const nombreBuscado = vehiculosMencionados[0].toLowerCase();
+                    const autoEncontrado = inventario.find(v =>
+                        v.modelo.toLowerCase().includes(nombreBuscado) ||
+                        nombreBuscado.includes(v.modelo.toLowerCase())
+                    );
+
+                    if (autoEncontrado && autoEncontrado.imageUrl) {
+                        mediaUrlsToSend.push(autoEncontrado.imageUrl);
+                        console.log(`[MEDIA] Adjuntando foto de ${autoEncontrado.modelo}: ${autoEncontrado.imageUrl}`);
+
+                        // Agregar el link para que vea todas las fotos
+                        if (autoEncontrado.url) {
+                            finalMessage += `\n\n🔗 Podés ver todas las fotos y detalles aquí: ${autoEncontrado.url}`;
+                        }
+                    }
+                }
+            }
+
             if (response.respuesta_cliente.media_urls) {
-                mediaUrlsToSend = response.respuesta_cliente.media_urls;
+                mediaUrlsToSend = [...mediaUrlsToSend, ...response.respuesta_cliente.media_urls];
             } else if (response.respuesta_cliente.media_url) {
-                mediaUrlsToSend = [response.respuesta_cliente.media_url];
+                mediaUrlsToSend.push(response.respuesta_cliente.media_url);
             }
 
             // Send response

@@ -31,7 +31,7 @@ if (isConfigured) {
   }
 }
 
-export { auth, db, messaging, storage };
+export { auth, db, messaging, storage, deleteDoc };
 
 export const uploadVehicleImage = async (file: File): Promise<string> => {
   if (!storage) throw new Error("Storage not initialized");

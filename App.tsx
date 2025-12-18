@@ -23,12 +23,15 @@ import AddClientModal from './components/AddClientModal';
 import MultiBudgetSelector from './components/MultiBudgetSelector';
 import MultiBudgetModal from './components/MultiBudgetModal';
 import PublicMultiBudgetView from './components/PublicMultiBudgetView';
+import PublicTradeInView from './components/PublicTradeInView';
 import TradeInAppraisalModal from './components/TradeInAppraisalModal';
 import LandingPage from './components/landing/LandingPage';
-import { Zap, LayoutDashboard, Car, Menu as MenuIcon, X, Edit, Calculator, TrendingUp, Database, AlertTriangle, Calendar as CalendarIcon, CheckSquare, LogOut } from 'lucide-react';
+import { Zap, LayoutDashboard, Car, Menu as MenuIcon, X, Edit, Calculator, TrendingUp, Database, AlertTriangle, Calendar as CalendarIcon, CheckSquare, LogOut, Trash2 } from 'lucide-react';
 import { fetchVehicles, fetchLeads, fetchTasks, fetchMenus, saveVehicle, saveLead, saveVehiclesBatch, saveTask, saveMenu, incrementMenuView, seedInitialData, getMenu, auth, signOut, deleteVehicle, trackBudgetView, saveMultiBudget, getMultiBudget, trackMultiBudgetView } from './services/firebase';
 import { saveAppraisal } from './services/appraisalService';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc } from "firebase/firestore";
+import { db, deleteDoc } from './services/firebase';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('landing');
@@ -86,6 +89,7 @@ const App: React.FC = () => {
 
   // Tracking which vehicle is being edited
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | undefined>(undefined);
+  const [editingMenu, setEditingMenu] = useState<Menu | undefined>(undefined);
 
   // Initial Data Fetching from Firebase and URL Param Check
   useEffect(() => {
@@ -184,6 +188,12 @@ const App: React.FC = () => {
         }
       }
 
+      if (window.location.pathname === '/public/trade-in') {
+        setCurrentView('trade_in');
+        setIsLoadingData(false);
+        return;
+      }
+
       setAuthLoading(false);
       setIsLoadingData(false);
     });
@@ -249,6 +259,20 @@ const App: React.FC = () => {
       await saveLead(newLead);
     } catch (e) {
       // Silent fail
+    }
+  };
+
+  const handleDeleteLead = async (leadId: string) => {
+    if (!window.confirm("¿Estás seguro de que quieres eliminar este cliente? Se borrará todo su historial.")) return;
+
+    // Optimistic Update
+    setLeads(prev => prev.filter(l => l.id !== leadId));
+
+    try {
+      await deleteDoc(doc(db, "leads", leadId));
+      if (targetLeadId === leadId) setTargetLeadId(undefined);
+    } catch (e) {
+      console.error("Error deleting lead:", e);
     }
   };
 
@@ -346,6 +370,22 @@ const App: React.FC = () => {
     } catch (e) {
       // Silent fail in offline mode
     }
+  };
+
+  const handleDeleteMenu = async (menuId: string) => {
+    // Optimistic Update
+    setMenus(prev => prev.filter(m => m.id !== menuId));
+    try {
+      await deleteDoc(doc(db, "menus", menuId));
+    } catch (e) {
+      console.error("Error deleting menu:", e);
+    }
+  };
+
+  const handleEditMenu = (menu: Menu) => {
+    // Para simplificar, usamos una prop de tipo 'editingMenu' que pasaremos al editor
+    setEditingMenu(menu);
+    setCurrentView('menu_editor');
   };
 
   const handleAddHistoryNote = async (note: string) => {
@@ -628,6 +668,8 @@ const App: React.FC = () => {
       case 'register':
         // Aquí puedes agregar tu componente de registro cuando lo tengas
         return <LoginView onLoginSuccess={() => setCurrentView('dashboard')} />;
+      case 'trade_in':
+        return <PublicTradeInView />;
       case 'dashboard':
         return (
           <DashboardView
@@ -642,6 +684,7 @@ const App: React.FC = () => {
             onOpenBudget={handleOpenBudget}
             onAddClient={() => { setEditingLead(undefined); setAddClientModalOpen(true); }}
             onEditClient={(lead) => { setEditingLead(lead); setAddClientModalOpen(true); }}
+            onDeleteClient={handleDeleteLead}
             onAppraise={handleOpenAppraisal}
           />
         );
@@ -694,13 +737,16 @@ const App: React.FC = () => {
           <MenuManagementView
             menus={menus}
             vehicles={vehicles}
-            onCreateClick={() => setCurrentView('menu_editor')}
+            onCreateClick={() => { setEditingMenu(undefined); setCurrentView('menu_editor'); }}
+            onEditClick={handleEditMenu}
+            onDeleteClick={handleDeleteMenu}
           />
         );
       case 'menu_editor':
         return (
           <MenuEditorView
             vehicles={Object.values(vehicles)}
+            initialMenu={editingMenu}
             onSave={handleSaveMenu}
             onBack={() => setCurrentView('menus')}
           />

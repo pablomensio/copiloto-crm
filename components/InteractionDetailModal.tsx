@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Interaction } from '../types';
-import { X, Save, Trash2, Calendar, MessageSquare, FileText, Phone, Mail } from 'lucide-react';
+import { X, Save, Trash2, Calendar, MessageSquare, FileText, Phone, Mail, Car } from 'lucide-react';
 
 interface InteractionDetailModalProps {
     interaction: Interaction;
@@ -39,6 +39,7 @@ const InteractionDetailModal: React.FC<InteractionDetailModalProps> = ({
             case 'email': return <Mail className="text-yellow-500" />;
             case 'note': return <FileText className="text-gray-500" />;
             case 'budget': return <FileText className="text-indigo-500" />;
+            case 'appraisal': return <Car className="text-blue-600" />;
             default: return <FileText className="text-gray-500" />;
         }
     };
@@ -52,6 +53,7 @@ const InteractionDetailModal: React.FC<InteractionDetailModalProps> = ({
             case 'budget': return 'Presupuesto';
             case 'pdf_sent': return 'PDF Enviado';
             case 'pdf_view': return 'PDF Visto';
+            case 'appraisal': return 'Tasación Recibida';
             default: return 'Interacción';
         }
     };

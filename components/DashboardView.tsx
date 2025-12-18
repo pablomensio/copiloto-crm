@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Lead, CopilotResponse, Vehicle, BudgetCalculation, Interaction } from '../types';
+import { Lead, CopilotResponse, Vehicle, BudgetCalculation, Interaction, FunnelStage } from '../types';
 import { analyzeLead } from '../services/geminiService';
 import LeadCard from './LeadCard';
 import VehicleCard from './VehicleCard';
 import CopilotAction from './CopilotAction';
 import InteractionDetailModal from './InteractionDetailModal';
-import { Search, MessageSquare, DollarSign, Activity, Clock, MapPin, Plus, Calendar, FileText, Calculator, ArrowLeft, Edit, Car } from 'lucide-react';
+import { Search, MessageSquare, DollarSign, Activity, Clock, MapPin, Plus, Calendar, FileText, Calculator, ArrowLeft, Edit, Car, Trash2, ChevronDown } from 'lucide-react';
 
 interface DashboardViewProps {
   leads: Lead[];
@@ -19,6 +19,7 @@ interface DashboardViewProps {
   onOpenBudget: (lead: Lead, vehicle: Vehicle, budget: BudgetCalculation) => void;
   onAddClient: () => void;
   onEditClient: (lead: Lead) => void;
+  onDeleteClient: (id: string) => void;
   onAppraise: (lead: Lead) => void;
 }
 
@@ -34,6 +35,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenBudget,
   onAddClient,
   onEditClient,
+  onDeleteClient,
   onAppraise
 }) => {
   const [selectedLeadId, setSelectedLeadId] = useState<string>(leads[0]?.id || '');
@@ -46,6 +48,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Mobile View State
   const [showMobileDetail, setShowMobileDetail] = useState(false);
+  const [filterStage, setFilterStage] = useState<FunnelStage | 'TODOS'>('TODOS');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredLeads = leads.filter(l => {
+    const matchesStage = filterStage === 'TODOS' || l.status === filterStage;
+    const matchesSearch = l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (l.phone && l.phone.includes(searchTerm));
+    return matchesStage && matchesSearch;
+  });
 
   const selectedLead = leads.find(l => l.id === selectedLeadId) || leads[0];
   const selectedVehicle = selectedLead ? vehicles[selectedLead.interestedVehicleId] : null;
@@ -147,14 +158,28 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             <input
               type="text"
               placeholder="Buscar lead..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
+          </div>
+          <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
+            {['TODOS', ...Object.values(FunnelStage)].map(stage => (
+              <button
+                key={stage}
+                onClick={() => setFilterStage(stage as any)}
+                className={`px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap transition-colors ${filterStage === stage ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+              >
+                {stage}
+              </button>
+            ))}
           </div>
         </div>
 
         <div className="space-y-3 overflow-y-auto flex-1 p-3">
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-1">Leads Activos</h2>
-          {leads.map(lead => (
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-1">Leads ({filteredLeads.length})</h2>
+          {filteredLeads.map(lead => (
             <LeadCard
               key={lead.id}
               lead={lead}
@@ -187,8 +212,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-2xl font-bold text-gray-900 leading-tight">{selectedLead.name}</h1>
-                  <button onClick={() => onEditClient(selectedLead)} className="text-gray-400 hover:text-indigo-600 transition-colors p-1 rounded-full hover:bg-gray-100">
+                  <button onClick={() => onEditClient(selectedLead)} className="text-gray-400 hover:text-indigo-600 transition-colors p-1 rounded-full hover:bg-gray-100" title="Editar datos">
                     <Edit size={16} />
+                  </button>
+                  <button
+                    onClick={() => onDeleteClient(selectedLead.id)}
+                    className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded-full hover:bg-red-50"
+                    title="Eliminar cliente"
+                  >
+                    <Trash2 size={16} />
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2 text-sm text-gray-600">
@@ -200,6 +232,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                     <Activity size={14} className="text-gray-500" />
                     Interés: <span className={`font-semibold ${selectedLead.interestLevel === 'High' ? 'text-green-600' : selectedLead.interestLevel === 'Medium' ? 'text-yellow-600' : 'text-gray-600'}`}>{selectedLead.interestLevel}</span>
                   </span>
+
+                  {/* FUNNEL STAGE SELECTOR */}
+                  <div className="relative group">
+                    <button className={`flex items-center gap-1.5 px-3 py-1 rounded-full border font-bold transition-all ${selectedLead.status === FunnelStage.DERIVADO ? 'bg-red-500 text-white border-red-600 animate-pulse' :
+                        selectedLead.status === FunnelStage.CITA_CONFIRMADA ? 'bg-indigo-600 text-white border-indigo-700' :
+                          'bg-white text-indigo-600 border-indigo-100 hover:border-indigo-300'
+                      }`}>
+                      <Activity size={14} />
+                      Etapa: {selectedLead.status}
+                      <ChevronDown size={14} />
+                    </button>
+                    <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-100 p-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                      {Object.values(FunnelStage).map(s => (
+                        <button
+                          key={s}
+                          onClick={() => onLeadUpdate({ ...selectedLead, status: s })}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium hover:bg-gray-50 ${selectedLead.status === s ? 'text-indigo-600 bg-indigo-50' : 'text-gray-600'}`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -11,6 +11,8 @@ interface PublicVehicleDetailProps {
 }
 
 const PublicVehicleDetail: React.FC<PublicVehicleDetailProps> = ({ vehicle, sellerProfile, onBack, showPrice }) => {
+  const [selectedImage, setSelectedImage] = React.useState(vehicle.imageUrl);
+
   // Limpiar y validar número de teléfono
   const cleanPhone = (sellerProfile.phoneNumber || '').replace(/[^0-9]/g, '');
   console.log('📱 WhatsApp Debug:', { raw: sellerProfile.phoneNumber, clean: cleanPhone, sellerProfile });
@@ -35,22 +37,26 @@ const PublicVehicleDetail: React.FC<PublicVehicleDetailProps> = ({ vehicle, sell
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
           <div className="aspect-video w-full bg-gray-100 relative">
             <img
-              src={vehicle.imageUrl}
+              src={selectedImage}
               alt={`${vehicle.make} ${vehicle.model}`}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-opacity duration-300"
             />
           </div>
+          {/* Gallery Thumbnails */}
+          {(vehicle.imageUrls && vehicle.imageUrls.length > 1) && (
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 p-4 bg-gray-50 border-t border-gray-100">
+              {vehicle.imageUrls.map((img, i) => (
+                <div
+                  key={i}
+                  onClick={() => setSelectedImage(img)}
+                  className={`aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${selectedImage === img ? 'border-indigo-600 scale-95' : 'border-gray-200 hover:border-indigo-300'}`}
+                >
+                  <img src={img} alt={`View ${i + 1}`} className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        {/* Gallery Thumbnails */}
-        {(vehicle.imageUrls && vehicle.imageUrls.length > 1) && (
-          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 p-4 bg-gray-50 border-t border-gray-100">
-            {vehicle.imageUrls.map((img, i) => (
-              <div key={i} className="aspect-square rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:border-indigo-500 transition-colors">
-                <img src={img} alt={`View ${i + 1}`} className="w-full h-full object-cover" />
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

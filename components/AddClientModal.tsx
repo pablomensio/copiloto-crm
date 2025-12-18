@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Phone, Mail, DollarSign, Calendar } from 'lucide-react';
-import { Lead } from '../types';
+import { Lead, FunnelStage } from '../types';
 
 interface AddClientModalProps {
     onSave: (lead: Lead) => void;
@@ -47,7 +47,7 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ onSave, onClose, initia
             email: formData.email,
             nextFollowUp: formData.nextFollowUp,
             createdAt: initialLead?.createdAt || new Date().toISOString(),
-            status: initialLead?.status || 'new'
+            status: initialLead?.status || FunnelStage.NUEVO
         };
 
         onSave(newLead);
