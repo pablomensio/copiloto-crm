@@ -6,10 +6,11 @@ import HeroSection from './HeroSection';
 import ProblemSection from './ProblemSection';
 import FeaturesSection from './FeaturesSection';
 import HowItWorksSection from './HowItWorksSection';
-import TestimonialsSection from './TestimonialsSection';
 import PricingSection from './PricingSection';
 import FinalCTASection from './FinalCTASection';
+import { ChatWidget } from '../ChatWidget';
 import './landing.css';
+
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -95,7 +96,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
                 <ProblemSection />
                 <FeaturesSection />
                 <HowItWorksSection />
-                <TestimonialsSection />
+                {/* <TestimonialsSection /> Eliminado por solicitud */}
                 <PricingSection />
                 <FinalCTASection />
 
@@ -259,6 +260,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister }) => {
                         </div>
                     </div>
                 </footer>
+                <ChatWidget />
             </main>
         </>
     );

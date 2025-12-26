@@ -3,7 +3,7 @@ import { enviarMensajeAlAgente } from "./agentClient";
 import { sendWhatsAppMessage } from "./sender";
 
 // Helpers (reused)
-async function obtenerInventarioActualizado() {
+export async function obtenerInventarioActualizado() {
     const db = admin.firestore();
     try {
         // Obtenemos solo los vehículos disponibles para no confundir al bot

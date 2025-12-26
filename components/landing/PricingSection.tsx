@@ -1,5 +1,6 @@
-import React from 'react';
-import ElectricBorder from './ElectricBorder';
+import './pricing-cards.css';
+
+
 
 const PricingSection: React.FC = () => {
     const plans = [
@@ -94,101 +95,102 @@ const PricingSection: React.FC = () => {
 
             <div className="kanban-grid">
                 {plans.map((plan, index) => (
-                    <ElectricBorder
+                    <div
+                        className={`plan-card ${plan.recommended ? 'recommended-plan' : ''}`}
                         key={index}
-                        color="#00FFFF"
-                        speed={0.5}
-                        chaos={0.3}
-                        thickness={plan.recommended ? 2 : 1.5}
-                        style={{ borderRadius: 20 }}
+                        style={{
+                            position: 'relative',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            height: '100%',
+                            minHeight: '600px' // Forzar altura mínima por si acaso
+                        }}
                     >
-                        <div className={`plan-card ${plan.recommended ? 'recommended-plan' : ''}`}>
-                            {plan.recommended && (
-                                <div className="ribbon">
-                                    ⭐ MÁS POPULAR
-                                </div>
-                            )}
-
-                            <div className="plan-header">
-                                <h3>{plan.name}</h3>
-                                <div className="price-wrapper">
-                                    <span className="currency">$</span>
-                                    <span className="price-tag">{plan.price}</span>
-                                    <span className="per-month">USD/{plan.period}</span>
-                                </div>
+                        {plan.recommended && (
+                            <div className="ribbon">
+                                ⭐ MÁS POPULAR
                             </div>
+                        )}
 
-                            <div className="plan-ideal">
-                                {plan.ideal}
+                        <div className="plan-header">
+                            <h3>{plan.name}</h3>
+                            <div className="price-wrapper">
+                                <span className="currency">$</span>
+                                <span className="price-tag">{plan.price}</span>
+                                <span className="per-month">USD/{plan.period}</span>
                             </div>
-
-                            <p style={{
-                                color: 'var(--text-gray)',
-                                marginBottom: '2rem',
-                                fontSize: '0.95rem',
-                                lineHeight: '1.6'
-                            }}>
-                                {plan.description}
-                            </p>
-
-                            {/* ROI Calculator (solo para PRO) */}
-                            {plan.roi && (
-                                <div style={{
-                                    background: 'rgba(0, 255, 255, 0.05)',
-                                    border: '1px solid rgba(0, 255, 255, 0.2)',
-                                    borderRadius: '12px',
-                                    padding: '1.5rem',
-                                    marginBottom: '2rem'
-                                }}>
-                                    <div style={{
-                                        fontSize: '0.875rem',
-                                        color: 'var(--text-gray)',
-                                        marginBottom: '1rem'
-                                    }}>
-                                        💰 ROI Garantizado:
-                                    </div>
-                                    <div style={{ fontSize: '0.9rem', color: 'var(--text-gray)', lineHeight: '1.8' }}>
-                                        <div>Inversión: ${plan.roi.investment}/mes</div>
-                                        <div>Retorno: {plan.roi.sales} ventas × ${plan.roi.commission.toLocaleString()} = ${plan.roi.total.toLocaleString()}</div>
-                                        <div style={{
-                                            color: 'var(--accent-cyan)',
-                                            fontWeight: 'bold',
-                                            fontSize: '1.25rem',
-                                            marginTop: '0.5rem'
-                                        }}>
-                                            ROI: {plan.roi.percentage.toLocaleString()}% anual
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            <ul className="features-list">
-                                {plan.features.map((feature, idx) => (
-                                    <li
-                                        key={idx}
-                                        className={`feature-item ${!feature.included ? 'disabled' : ''}`}
-                                    >
-                                        <span className={feature.included ? 'check-icon' : 'x-icon'}>
-                                            {feature.included ? '✓' : '✗'}
-                                        </span>
-                                        <span style={{
-                                            fontWeight: feature.highlight ? 'bold' : 'normal',
-                                            color: feature.highlight ? 'var(--accent-cyan)' : 'inherit'
-                                        }}>
-                                            {feature.text}
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
-
-                            <a
-                                href={plan.ctaLink}
-                                className={`cta-plan ${plan.recommended ? 'cta-pro' : ''}`}
-                            >
-                                {plan.cta}
-                            </a>
                         </div>
-                    </ElectricBorder>
+
+                        <div className="plan-ideal">
+                            {plan.ideal}
+                        </div>
+
+                        <p style={{
+                            color: 'var(--text-gray)',
+                            marginBottom: '2rem',
+                            fontSize: '0.95rem',
+                            lineHeight: '1.6'
+                        }}>
+                            {plan.description}
+                        </p>
+
+                        {/* ROI Calculator (solo para PRO) */}
+                        {plan.roi && (
+                            <div style={{
+                                background: 'rgba(0, 255, 255, 0.05)',
+                                border: '1px solid rgba(0, 255, 255, 0.2)',
+                                borderRadius: '12px',
+                                padding: '1.5rem',
+                                marginBottom: '2rem'
+                            }}>
+                                <div style={{
+                                    fontSize: '0.875rem',
+                                    color: 'var(--text-gray)',
+                                    marginBottom: '1rem'
+                                }}>
+                                    💰 ROI Garantizado:
+                                </div>
+                                <div style={{ fontSize: '0.9rem', color: 'var(--text-gray)', lineHeight: '1.8' }}>
+                                    <div>Inversión: ${plan.roi.investment}/mes</div>
+                                    <div>Retorno: {plan.roi.sales} ventas × ${plan.roi.commission.toLocaleString()} = ${plan.roi.total.toLocaleString()}</div>
+                                    <div style={{
+                                        color: 'var(--accent-cyan)',
+                                        fontWeight: 'bold',
+                                        fontSize: '1.25rem',
+                                        marginTop: '0.5rem'
+                                    }}>
+                                        ROI: {plan.roi.percentage.toLocaleString()}% anual
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <ul className="features-list">
+                            {plan.features.map((feature, idx) => (
+                                <li
+                                    key={idx}
+                                    className={`feature-item ${!feature.included ? 'disabled' : ''}`}
+                                >
+                                    <span className={feature.included ? 'check-icon' : 'x-icon'}>
+                                        {feature.included ? '✓' : '✗'}
+                                    </span>
+                                    <span style={{
+                                        fontWeight: feature.highlight ? 'bold' : 'normal',
+                                        color: feature.highlight ? 'var(--accent-cyan)' : 'inherit'
+                                    }}>
+                                        {feature.text}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+
+                        <a
+                            href={plan.ctaLink}
+                            className={`cta-plan ${plan.recommended ? 'cta-pro' : ''}`}
+                        >
+                            {plan.cta}
+                        </a>
+                    </div>
                 ))}
             </div>
 

@@ -1,0 +1,43 @@
+/* Pricing Cards Styling - Premium Dark Mode */
+.plan-card {
+    background: rgba(20, 20, 20, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 24px !important;
+    padding: 2.5rem !important;
+    position: relative;
+    transition: all 0.4s ease;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(10px);
+    height: 100%;
+}
+
+.plan-card:hover {
+    transform: translateY(-10px);
+    border-color: var(--accent-cyan) !important;
+    box-shadow: 0 25px 60px rgba(0, 255, 255, 0.2) !important;
+}
+
+.recommended-plan {
+    background: linear-gradient(145deg, rgba(25, 25, 25, 0.98) 0%, rgba(0, 40, 40, 0.5) 100%) !important;
+    border: 2px solid var(--accent-cyan) !important;
+    transform: scale(1.05);
+    box-shadow: 0 30px 70px rgba(0, 255, 255, 0.15) !important;
+    z-index: 10;
+}
+
+/* Ensure text visibility */
+.plan-header h3 {
+    color: #fff !important;
+}
+
+.price-tag {
+    color: var(--accent-cyan) !important;
+    text-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+}
+
+.feature-item {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 0.8rem 0;
+}

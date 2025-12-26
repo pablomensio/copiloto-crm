@@ -1,5 +1,7 @@
 import * as admin from "firebase-admin";
 import { receiveEvolution } from "./evolutionReceiver";
+import { webChat } from "./webChatEndpoint";
+
 import { createOrganization } from "./createOrganization";
 import {
     toolBuscarVehiculos,
@@ -17,5 +19,7 @@ export {
     toolBuscarVehiculos,
     toolEnviarFicha,
     toolAbrirCalculadora,
-    toolCrearTarea
+    toolCrearTarea,
+    webChat
 };
+

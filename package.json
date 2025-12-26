@@ -14,6 +14,7 @@
     "clean:cars": "node scripts/clean_vehicles.js"
   },
   "dependencies": {
+    "@google-cloud/vertexai": "^1.10.0",
     "@google/genai": "^1.30.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.4.2",
