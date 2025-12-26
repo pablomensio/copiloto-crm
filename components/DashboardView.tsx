@@ -236,8 +236,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                   {/* FUNNEL STAGE SELECTOR */}
                   <div className="relative group">
                     <button className={`flex items-center gap-1.5 px-3 py-1 rounded-full border font-bold transition-all ${selectedLead.status === FunnelStage.DERIVADO ? 'bg-red-500 text-white border-red-600 animate-pulse' :
-                        selectedLead.status === FunnelStage.CITA_CONFIRMADA ? 'bg-indigo-600 text-white border-indigo-700' :
-                          'bg-white text-indigo-600 border-indigo-100 hover:border-indigo-300'
+                      selectedLead.status === FunnelStage.CITA_CONFIRMADA ? 'bg-indigo-600 text-white border-indigo-700' :
+                        'bg-white text-indigo-600 border-indigo-100 hover:border-indigo-300'
                       }`}>
                       <Activity size={14} />
                       Etapa: {selectedLead.status}
@@ -259,7 +259,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
             <div className="flex items-center gap-4 text-sm text-gray-400 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6 w-full md:w-auto">
-              <div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    const url = `${window.location.origin}/public/trade-in?leadId=${selectedLead.id}`;
+                    navigator.clipboard.writeText(url);
+                    alert('Link de tasación copiado para ' + selectedLead.name);
+                  }}
+                  className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-100 px-4 py-2 rounded-xl font-medium shadow-sm hover:bg-indigo-50 transition-colors"
+                >
+                  <Car size={16} />
+                  Enviar Tasación
+                </button>
                 {selectedVehicle && (
                   <button
                     onClick={() => onQuote(selectedLead, selectedVehicle)}

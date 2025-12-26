@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AppView, Lead, SellerProfile, Vehicle, Task, Interaction, BudgetCalculation, Menu, MultiBudget, TradeInAppraisal } from './types';
+import { AppView, Lead, SellerProfile, Vehicle, VehicleStatus, Task, Interaction, BudgetCalculation, Menu, MultiBudget, TradeInAppraisal } from './types';
 import { INITIAL_VEHICLES, LEADS as INITIAL_LEADS, INITIAL_TASKS } from './constants';
 import DashboardView from './components/DashboardView';
 import InventoryView from './components/InventoryView';
@@ -26,7 +26,7 @@ import PublicMultiBudgetView from './components/PublicMultiBudgetView';
 import PublicTradeInView from './components/PublicTradeInView';
 import TradeInAppraisalModal from './components/TradeInAppraisalModal';
 import LandingPage from './components/landing/LandingPage';
-import { Zap, LayoutDashboard, Car, Menu as MenuIcon, X, Edit, Calculator, TrendingUp, Database, AlertTriangle, Calendar as CalendarIcon, CheckSquare, LogOut, Trash2 } from 'lucide-react';
+import { Zap, LayoutDashboard, Car, Menu as MenuIcon, X, Edit, Calculator, TrendingUp, Database, AlertTriangle, Calendar as CalendarIcon, CheckSquare, LogOut, Trash2, Plus, Eye, Copy, ExternalLink, CheckCircle } from 'lucide-react';
 import { fetchVehicles, fetchLeads, fetchTasks, fetchMenus, saveVehicle, saveLead, saveVehiclesBatch, saveTask, saveMenu, incrementMenuView, seedInitialData, getMenu, auth, signOut, deleteVehicle, trackBudgetView, saveMultiBudget, getMultiBudget, trackMultiBudgetView } from './services/firebase';
 import { saveAppraisal } from './services/appraisalService';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -103,7 +103,22 @@ const App: React.FC = () => {
 
       if (menuId) {
         try {
-          const menuData = await getMenu(menuId);
+          let menuData = await getMenu(menuId);
+          if (!menuData && (menuId === 'FULL_INVENTORY_CATALOG' || menuId === '__FULL_INVENTORY__')) {
+            // Fallback virtual para inventario completo
+            menuData = {
+              id: 'FULL_INVENTORY_CATALOG', // Normalizado
+              name: 'Inventario Completo',
+              vehicleIds: [],
+              createdAt: new Date().toISOString(),
+              viewCount: 0,
+              includePrice: true,
+              active: true
+            } as any;
+
+            // Intentamos persistirlo para que exista en el futuro
+            saveMenu(menuData).catch(err => console.error("Error persistiendo catalogo auto-generado:", err));
+          }
           if (menuData) {
             setPublicMenu(menuData);
             setCurrentView('public_menu');
@@ -731,7 +746,7 @@ const App: React.FC = () => {
       case 'calendar':
         return <CalendarView tasks={tasks} onTaskToggle={handleTaskToggle} onAddTaskClick={() => openAddTaskModal()} />;
       case 'tasks':
-        return <TaskListView tasks={tasks} onTaskToggle={handleTaskToggle} onAddTaskClick={() => openAddTaskModal()} />;
+        return <TaskListView tasks={tasks} leads={leads} onTaskToggle={handleTaskToggle} onAddTaskClick={() => openAddTaskModal()} />;
       case 'menus':
         return (
           <MenuManagementView
@@ -753,7 +768,13 @@ const App: React.FC = () => {
         );
       case 'public_menu':
         if (!publicMenu) return <div>Menú no encontrado</div>;
-        const menuVehicles = publicMenu.vehicleIds.map(id => vehicles[id]).filter(Boolean);
+        let menuVehicles = publicMenu.vehicleIds.map(id => vehicles[id]).filter(Boolean);
+
+        // Si es el catálogo especial de inventario completo, forzamos a mostrar todo lo DISPONIBLE
+        if (publicMenu.id === 'FULL_INVENTORY_CATALOG' || publicMenu.id === '__FULL_INVENTORY__') {
+          menuVehicles = Object.values(vehicles).filter(v => v.status === VehicleStatus.AVAILABLE || (v.status as string) === 'Available');
+        }
+
         return (
           <PublicMenuView
             menu={publicMenu}

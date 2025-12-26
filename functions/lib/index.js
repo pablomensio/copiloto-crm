@@ -23,13 +23,16 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.receiveEvolution = exports.createOrganization = exports.receiveWhatsapp = void 0;
+exports.toolCrearTarea = exports.toolAbrirCalculadora = exports.toolEnviarFicha = exports.toolBuscarVehiculos = exports.receiveEvolution = exports.createOrganization = void 0;
 const admin = __importStar(require("firebase-admin"));
-const whatsappReceiver_1 = require("./whatsappReceiver");
-Object.defineProperty(exports, "receiveWhatsapp", { enumerable: true, get: function () { return whatsappReceiver_1.receiveWhatsapp; } });
 const evolutionReceiver_1 = require("./evolutionReceiver");
 Object.defineProperty(exports, "receiveEvolution", { enumerable: true, get: function () { return evolutionReceiver_1.receiveEvolution; } });
 const createOrganization_1 = require("./createOrganization");
 Object.defineProperty(exports, "createOrganization", { enumerable: true, get: function () { return createOrganization_1.createOrganization; } });
+const agentTools_1 = require("./agentTools");
+Object.defineProperty(exports, "toolBuscarVehiculos", { enumerable: true, get: function () { return agentTools_1.toolBuscarVehiculos; } });
+Object.defineProperty(exports, "toolEnviarFicha", { enumerable: true, get: function () { return agentTools_1.toolEnviarFicha; } });
+Object.defineProperty(exports, "toolAbrirCalculadora", { enumerable: true, get: function () { return agentTools_1.toolAbrirCalculadora; } });
+Object.defineProperty(exports, "toolCrearTarea", { enumerable: true, get: function () { return agentTools_1.toolCrearTarea; } });
 admin.initializeApp();
 //# sourceMappingURL=index.js.map

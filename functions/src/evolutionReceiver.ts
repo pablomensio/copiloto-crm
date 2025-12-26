@@ -21,47 +21,60 @@ export const receiveEvolution = functions.https.onRequest(async (req, res) => {
 
     // Let's assume v2 format from research:
     const data = body.data;
-    console.log("[DEBUG] data exists:", !!data);
-    console.log("[DEBUG] data.key exists:", !!data?.key);
-    console.log("[DEBUG] data.key.fromMe:", data?.key?.fromMe);
+    const instance = body.instance;
 
-    if (!data || !data.key || data.key.fromMe) {
-        // Ignore updates or messages sent by me
-        console.log("[DEBUG] Rejecting: no data or fromMe=true");
+    console.log(`[EVOLUTION] Instance: ${instance} | Event: ${body.event}`);
+
+    if (!data || !data.key) {
+        console.log("[DEBUG] Rejecting: no data or key");
+        res.sendStatus(200);
+        return;
+    }
+
+    // CRITICAL: fromMe check. We ONLY ignore if fromMe is explicitly true.
+    // If it's false or undefined (coming from others), we process.
+    if (data.key.fromMe === true) {
+        console.log("[DEBUG] Ignoring message sent by the bot (fromMe=true)");
+        res.sendStatus(200);
+        return;
+    }
+
+    // WhatsApp now uses @lid format, the real number is in remoteJidAlt
+    let remoteJid = data.key.remoteJid;
+
+    // If it's the new @lid format, use remoteJidAlt instead
+    if (remoteJid && remoteJid.includes('@lid')) {
+        console.log(`[EVOLUTION] Detected @lid format, using remoteJidAlt`);
+        remoteJid = data.key.remoteJidAlt || remoteJid;
+    }
+
+    if (!remoteJid || remoteJid.includes('@g.us')) {
+        console.log("[DEBUG] Ignoring group or invalid JID:", remoteJid);
         res.sendStatus(200);
         return;
     }
 
     const messageType = data.messageType;
-    console.log("[DEBUG] messageType:", messageType);
-    // We support text and simple conversation, or extendedTextMessage
-
     let text = "";
     if (messageType === "conversation") {
         text = data.message?.conversation;
     } else if (messageType === "extendedTextMessage") {
         text = data.message?.extendedTextMessage?.text;
     } else {
-        // Check if it has a caption (image/video)
         text = data.message?.imageMessage?.caption || data.message?.videoMessage?.caption || "";
     }
 
-    console.log("[DEBUG] extracted text:", text);
-
-    if (!text) {
-        console.log("No text content found in Evolution message");
-        res.sendStatus(200);
-        return;
-    }
-
-    const remoteJid = data.key.remoteJid; // e.g., "5491112345678@s.whatsapp.net"
     const from = remoteJid.split("@")[0];
-    const pushName = data.pushName || "Cliente WhatsApp";
+    const pushName = data.pushName || body.sender || "Cliente WhatsApp";
 
-    console.log(`[DEBUG] Calling processIncomingMessage(from=${from}, text=${text}, pushName=${pushName})`);
+    console.log(`[EVOLUTION] Processing message from ${from} (${pushName}): "${text}"`);
 
-    // Call the shared handler
-    await processIncomingMessage(from, text, pushName);
+    try {
+        await processIncomingMessage(from, text, pushName);
+        console.log(`[EVOLUTION] processIncomingMessage completed for ${from}`);
+    } catch (err: any) {
+        console.error(`[EVOLUTION] Error processing message from ${from}:`, err.message);
+    }
 
     res.sendStatus(200);
 });

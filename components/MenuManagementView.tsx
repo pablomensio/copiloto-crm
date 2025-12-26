@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Menu, Vehicle } from '../types';
-import { Plus, Eye, Copy, Trash2, ExternalLink, Menu as MenuIcon, Calendar, Edit } from 'lucide-react';
+import { Plus, Eye, Copy, Trash2, ExternalLink, Menu as MenuIcon, Calendar, Edit, CheckCircle, Zap } from 'lucide-react';
 
 interface MenuManagementViewProps {
   menus: Menu[];
@@ -38,6 +38,26 @@ const MenuManagementView: React.FC<MenuManagementViewProps> = ({ menus, vehicles
         >
           <Plus size={18} />
           Nuevo Menú
+        </button>
+      </div>
+
+      {/* Full Inventory Info Banner */}
+      <div className="mb-8 p-6 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl text-white shadow-xl shadow-indigo-200 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+            <Zap size={24} className="text-white" />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg">Catálogo Live: Full Inventario</h3>
+            <p className="text-indigo-100 text-sm">Este link siempre muestra todo tu stock disponible en tiempo real.</p>
+          </div>
+        </div>
+        <button
+          onClick={() => handleCopyLink('FULL_INVENTORY_CATALOG')}
+          className="bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-all flex items-center gap-2 shrink-0 shadow-lg"
+        >
+          {copiedId === 'FULL_INVENTORY_CATALOG' ? <CheckCircle size={18} /> : <Copy size={18} />}
+          {copiedId === 'FULL_INVENTORY_CATALOG' ? '¡Enlace Copiado!' : 'Copiar Link Inventario'}
         </button>
       </div>
 

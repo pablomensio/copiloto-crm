@@ -1,31 +1,9 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ejecutarCerebroVentas = exports.CopilotoOutputSchema = void 0;
 const zod_1 = require("zod");
 const prompts_1 = require("./prompts");
+const generative_ai_1 = require("@google/generative-ai");
 // Esquemas
 const VehiculoSchema = zod_1.z.object({
     id: zod_1.z.string(),
@@ -35,7 +13,6 @@ const VehiculoSchema = zod_1.z.object({
     url: zod_1.z.string().optional(),
     imageUrl: zod_1.z.string().optional(),
     imageUrls: zod_1.z.array(zod_1.z.string()).optional(),
-    // Agrega más campos si los tienes disponibles en el objeto inventario
 });
 const CerebroVentasInputSchema = zod_1.z.object({
     datos_lead: zod_1.z.any().optional(),
@@ -48,55 +25,86 @@ exports.CopilotoOutputSchema = zod_1.z.object({
     gestion_lead: zod_1.z.object({
         accion_lead: zod_1.z.enum(["CREAR", "ACTUALIZAR", "SCORE", "NINGUNA"]),
         datos_extraidos: zod_1.z.object({
-            nombre: zod_1.z.string().nullable(),
-            apellido: zod_1.z.string().nullable(),
-            email: zod_1.z.string().nullable(),
-            telefono: zod_1.z.string().nullable()
+            nombre: zod_1.z.string().nullish(),
+            apellido: zod_1.z.string().nullish(),
+            email: zod_1.z.string().nullish(),
+            telefono: zod_1.z.string().nullish()
         }),
         actualizaciones_estado: zod_1.z.object({
             score_prioridad: zod_1.z.number().min(0).max(100),
-            estado: zod_1.z.enum(["NUEVO", "CONTACTADO", "NEGOCIACION", "CERRADO", "PERDIDO"])
+            estado: zod_1.z.enum(["NUEVO", "CONTACTADO", "NEGOCIACION", "CERRADO", "PERDIDO", "INFORMATIVA", "TASACION"]).catch("NUEVO")
         })
     }),
     analisis_conversacional: zod_1.z.object({
-        intencion_detectada: zod_1.z.enum(["EXPLORACION", "INFORMATIVA", "NEGOCIACION", "TASACION", "CITA", "CIERRE", "OTRO"]),
+        intencion_detectada: zod_1.z.enum(["EXPLORACION", "INFORMATIVA", "NEGOCIACION", "TASACION", "CITA", "CIERRE", "OBJECION", "OTRO"]),
         vehiculos_identificados: zod_1.z.array(zod_1.z.string())
     }),
     respuesta_cliente: zod_1.z.object({
         mensaje_whatsapp: zod_1.z.string(),
-        media_url: zod_1.z.string().nullable().optional(),
+        media_url: zod_1.z.string().nullish(),
         media_urls: zod_1.z.array(zod_1.z.string()).optional(),
         accion_sugerida_app: zod_1.z.enum(["ABRIR_CALCULADORA", "ENVIAR_FICHA", "SOLO_RESPONDER", "CREAR_TAREA", "CREAR_NOTA", "ENVIAR_TASACION", "ENVIAR_CATALOGO_COMPLETO"])
     }),
     razonamiento: zod_1.z.string()
 });
-// LAZY LOADING EXTREMO: Dynamic Imports
-let aiInstance = null;
-async function getAI() {
-    if (!aiInstance) {
-        console.log('🔄 Inicializando Genkit con Google AI (gemini-2.0-flash-exp)...');
-        // Importamos dinámicamente para que Firebase Trigger Analysis no cargue estos módulos pesados
-        const { genkit } = await Promise.resolve().then(() => __importStar(require("genkit")));
-        const { googleAI } = await Promise.resolve().then(() => __importStar(require("@genkit-ai/googleai")));
-        // Usar API Key de Google AI (desde environment variables)
-        const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-        if (!apiKey) {
-            throw new Error("GEMINI_API_KEY o GOOGLE_API_KEY no configurada en functions/.env");
-        }
-        aiInstance = genkit({
-            plugins: [
-                googleAI({ apiKey })
-            ],
-            model: "googleai/gemini-2.0-flash-exp",
-        });
+function extractJsonObject(text) {
+    const trimmed = text.trim();
+    if (!trimmed)
+        return "";
+    // Si viene con ```json ... ```
+    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (fenced === null || fenced === void 0 ? void 0 : fenced[1]) {
+        return fenced[1].trim();
     }
-    return aiInstance;
+    // Desde primer '{' hasta último '}'
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start !== -1 && end !== -1 && end > start) {
+        return trimmed.slice(start, end + 1).trim();
+    }
+    return trimmed;
 }
-// Función wrapper
+async function generarSalidaGemini(prompt) {
+    // Usar API key de Gemini (modelo público)
+    const apiKey = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error("Falta GOOGLE_GENAI_API_KEY o GEMINI_API_KEY en variables de entorno");
+    }
+    const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
+    // Modelo público: gemini-2.0-flash (más rápido y económico)
+    const modelName = "gemini-2.0-flash";
+    console.log(`[GEMINI] Usando modelo: ${modelName}`);
+    const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 4096,
+        },
+    });
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+    if (!(text === null || text === void 0 ? void 0 : text.trim())) {
+        throw new Error("Respuesta vacía de Gemini");
+    }
+    const responseText = text.trim();
+    console.log(`[GEMINI] Respuesta recibida (${responseText.length} chars)`);
+    const jsonText = extractJsonObject(responseText);
+    if (!jsonText) {
+        throw new Error("Gemini devolvió respuesta vacía (sin texto JSON)");
+    }
+    try {
+        return JSON.parse(jsonText);
+    }
+    catch (e) {
+        const preview = jsonText.length > 800 ? jsonText.slice(0, 800) + "…" : jsonText;
+        throw new Error(`Salida no es JSON válido: ${(e === null || e === void 0 ? void 0 : e.message) || e}. Preview: ${preview}`);
+    }
+}
+// Función wrapper principal
 async function ejecutarCerebroVentas(input) {
-    const ai = await getAI(); // Inicialización asíncrona
+    console.log(`[GEMINI] Iniciando CerebroVentas`);
     // Construir el prompt del sistema + contexto
-    // Combinamos la instrucción maestra con los datos en tiempo real
     const sistemaPrompt = `
 ${prompts_1.SYSTEM_INSTRUCTION}
 
@@ -109,15 +117,9 @@ ${input.historial_chat.join("\n")}
 ### MENSAJE ACTUAL DEL CLIENTE:
 "${input.mensaje_actual}"
 `;
-    // Generar respuesta estructurada
-    const { output } = await ai.generate({
-        prompt: sistemaPrompt,
-        output: { schema: exports.CopilotoOutputSchema },
-    });
-    if (!output) {
-        throw new Error("Genkit no generó una salida válida");
-    }
-    return output;
+    const prompt = `${sistemaPrompt}\n\nIMPORTANTE: Respondé SOLO con un JSON válido que cumpla el schema. Sin texto extra, sin Markdown, sin backticks.`;
+    const parsed = await generarSalidaGemini(prompt);
+    return exports.CopilotoOutputSchema.parse(parsed);
 }
 exports.ejecutarCerebroVentas = ejecutarCerebroVentas;
 //# sourceMappingURL=genkitFlow.js.map

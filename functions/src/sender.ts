@@ -1,4 +1,3 @@
-import { sendMaytapiMessage } from "./maytapiClient";
 import { sendEvolutionMessage } from "./evolutionClient";
 
 export async function sendWhatsAppMessage(
@@ -6,12 +5,6 @@ export async function sendWhatsAppMessage(
     message: string,
     mediaUrls?: string[] | null
 ) {
-    const provider = process.env.WHATSAPP_PROVIDER || 'maytapi';
-    console.log(`[Sender] Routing message via: ${provider.toUpperCase()}`);
-
-    if (provider === 'evolution') {
-        await sendEvolutionMessage(to, message, mediaUrls);
-    } else {
-        await sendMaytapiMessage(to, message, mediaUrls);
-    }
+    console.log(`[Sender] Sending message via Evolution API to: ${to}`);
+    await sendEvolutionMessage(to, message, mediaUrls);
 }

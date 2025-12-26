@@ -25,13 +25,17 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.processIncomingMessage = void 0;
 const admin = __importStar(require("firebase-admin"));
-const genkitFlow_1 = require("./genkitFlow");
+const agentClient_1 = require("./agentClient");
 const sender_1 = require("./sender");
 // Helpers (reused)
 async function obtenerInventarioActualizado() {
     const db = admin.firestore();
     try {
-        const snapshot = await db.collection("vehicles").limit(50).get();
+        // Obtenemos solo los vehículos disponibles para no confundir al bot
+        const snapshot = await db.collection("vehicles")
+            .where("status", "==", "Available")
+            .limit(100)
+            .get();
         return snapshot.docs.map(doc => {
             const data = doc.data();
             return {
@@ -128,11 +132,13 @@ async function gestionarLead(db, telefono, gestionLead, chatId, senderName) {
     return { leadId, leadRef };
 }
 async function processIncomingMessage(from, text, senderName) {
+    var _a, _b, _c, _d;
     const db = admin.firestore();
-    console.log(`Processing message from ${from}: ${text}`);
+    console.log(`[HANDLER] Entry: Received message from ${from}: "${text}"`);
     const chatId = `chat_${from}`;
     const chatRef = db.collection("chats").doc(chatId);
     try {
+        console.log(`[HANDLER] Running transaction for ${from}...`);
         const shouldProcess = await db.runTransaction(async (t) => {
             const doc = await t.get(chatRef);
             const now = Date.now();
@@ -162,9 +168,11 @@ async function processIncomingMessage(from, text, senderName) {
             return;
         }
         if (!(data === null || data === void 0 ? void 0 : data.processing) && (data === null || data === void 0 ? void 0 : data.buffer) && data.buffer.length > 0) {
+            console.log(`[HANDLER] Starting AI processing for ${from}. Buffer size: ${data.buffer.length}`);
             // Mark as processing
             await chatRef.update({ processing: true });
             const fullText = data.buffer.join(" . ");
+            console.log(`[HANDLER] Full text for AI: "${fullText}"`);
             // Get history
             const historySnapshot = await chatRef.collection("history")
                 .orderBy("timestamp", "desc")
@@ -175,19 +183,41 @@ async function processIncomingMessage(from, text, senderName) {
                 return `${role}: ${hData.content}`;
             }).reverse();
             const inventario = await obtenerInventarioActualizado();
-            // AI Execution
-            const response = await (0, genkitFlow_1.ejecutarCerebroVentas)({
-                datos_lead: (data === null || data === void 0 ? void 0 : data.leadData) || "NO_EXISTE",
-                historial_chat: history,
-                inventario: inventario,
-                mensaje_actual: fullText,
-                contexto_origen: (data === null || data === void 0 ? void 0 : data.contexto_origen) || null
+            // AI Execution - Ahora usando Vertex AI Agent
+            console.log(`[AGENT] Llamando al Agente de Vertex AI para lead ${from}`);
+            const agentResponse = await (0, agentClient_1.enviarMensajeAlAgente)(from, // leadId - usamos el teléfono como session ID
+            fullText, {
+                nombre: ((_a = data === null || data === void 0 ? void 0 : data.leadData) === null || _a === void 0 ? void 0 : _a.nombre) || senderName,
+                telefono: from,
+                historial: history.join('\n'),
+                inventario_disponible: inventario.length
             });
+            console.log(`[AGENT] Respuesta del agente:`, agentResponse.mensaje);
+            // El agente devuelve texto plano, lo adaptamos al formato esperado
+            const response = {
+                respuesta_cliente: {
+                    mensaje_whatsapp: agentResponse.mensaje,
+                    accion_sugerida_app: null,
+                    media_urls: [],
+                    media_url: null
+                },
+                gestion_lead: {
+                    datos_extraidos: {},
+                    actualizaciones_estado: {}
+                },
+                analisis_conversacional: {
+                    vehiculos_identificados: [],
+                    intencion_detectada: "CONSULTA"
+                },
+                razonamiento: "Procesado por Vertex AI Agent"
+            };
             // Lead Management
             const leadResult = await gestionarLead(db, from, response.gestion_lead, chatId, senderName);
             // Actions (Tasks, Notes, etc)
             let finalMessage = response.respuesta_cliente.mensaje_whatsapp;
             const accion = response.respuesta_cliente.accion_sugerida_app;
+            console.log(`[AI_RESPONSE] Accion detectada: ${accion}`);
+            console.log(`[AI_RESPONSE] Vehiculos identificados:`, (_b = response.analisis_conversacional) === null || _b === void 0 ? void 0 : _b.vehiculos_identificados);
             if (leadResult && leadResult.leadId) {
                 if (accion === "ENVIAR_TASACION") {
                     const tradeInLink = `https://copiloto-crm-1764216245.web.app/public/trade-in?leadId=${leadResult.leadId}`;
@@ -242,18 +272,41 @@ async function processIncomingMessage(from, text, senderName) {
             // Prepare Media
             let mediaUrlsToSend = [];
             if (accion === "ENVIAR_FICHA") {
-                // Buscar el auto mencionado en el inventario para sacar la foto real
                 const vehiculosMencionados = response.analisis_conversacional.vehiculos_identificados;
-                if (vehiculosMencionados && vehiculosMencionados.length > 0) {
+                if (vehiculosMencionados && vehiculosMencionados.length > 0 && typeof vehiculosMencionados[0] === 'string') {
                     const nombreBuscado = vehiculosMencionados[0].toLowerCase();
-                    const autoEncontrado = inventario.find(v => v.modelo.toLowerCase().includes(nombreBuscado) ||
-                        nombreBuscado.includes(v.modelo.toLowerCase()));
-                    if (autoEncontrado && autoEncontrado.imageUrl) {
-                        mediaUrlsToSend.push(autoEncontrado.imageUrl);
-                        console.log(`[MEDIA] Adjuntando foto de ${autoEncontrado.modelo}: ${autoEncontrado.imageUrl}`);
-                        // Agregar el link para que vea todas las fotos
-                        if (autoEncontrado.url) {
-                            finalMessage += `\n\n🔗 Podés ver todas las fotos y detalles aquí: ${autoEncontrado.url}`;
+                    // Split search term into words (to handle "Volkswagen Voyage" matching "Voyage")
+                    const palabrasBusqueda = nombreBuscado.replace(/_/g, ' ').split(' ').filter((p) => p.length > 2);
+                    console.log(`[SEARCH] Buscando vehiculo con palabras:`, palabrasBusqueda);
+                    const autosEncontrados = inventario.filter(v => {
+                        const modeloLower = v.modelo.toLowerCase().replace(/_/g, ' ');
+                        // Match if ANY word from search appears in the model name
+                        return palabrasBusqueda.some((palabra) => modeloLower.includes(palabra));
+                    });
+                    console.log(`[SEARCH] Encontrados ${autosEncontrados.length} vehiculos:`, autosEncontrados.map(v => v.modelo));
+                    if (autosEncontrados.length === 1) {
+                        const auto = autosEncontrados[0];
+                        if (auto.imageUrl) {
+                            mediaUrlsToSend.push(auto.imageUrl);
+                            console.log(`[MEDIA] Adjuntando foto de ${auto.modelo}: ${auto.imageUrl}`);
+                        }
+                        else {
+                            console.log(`[MEDIA] Vehiculo ${auto.modelo} NO tiene imageUrl`);
+                        }
+                        if (auto.url) {
+                            finalMessage += `\n\n🔗 Ver detalles de ${auto.modelo}: ${auto.url}`;
+                        }
+                    }
+                    else if (autosEncontrados.length > 1) {
+                        // Si hay varios, listarlos todos con sus links
+                        let listaAutos = "\n\nEncontré estas opciones de " + vehiculosMencionados[0] + ":";
+                        autosEncontrados.forEach(auto => {
+                            listaAutos += `\n📍 ${auto.modelo}: ${auto.url}`;
+                        });
+                        finalMessage += listaAutos;
+                        // Opcionalmente mandar la foto del primero
+                        if (autosEncontrados[0].imageUrl) {
+                            mediaUrlsToSend.push(autosEncontrados[0].imageUrl);
                         }
                     }
                 }
@@ -265,6 +318,7 @@ async function processIncomingMessage(from, text, senderName) {
                 mediaUrlsToSend.push(response.respuesta_cliente.media_url);
             }
             // Send response
+            console.log(`[SEND] About to send message. Media URLs count: ${mediaUrlsToSend.length}`, mediaUrlsToSend);
             await (0, sender_1.sendWhatsAppMessage)(from, finalMessage, mediaUrlsToSend);
             // Save to Chat History
             const batch = db.batch();
@@ -293,9 +347,18 @@ async function processIncomingMessage(from, text, senderName) {
         }
     }
     catch (error) {
-        console.error("Error en flujo MessageHandler:", error);
+        const status = (_c = error === null || error === void 0 ? void 0 : error.response) === null || _c === void 0 ? void 0 : _c.status;
+        const url = (_d = error === null || error === void 0 ? void 0 : error.config) === null || _d === void 0 ? void 0 : _d.url;
+        const safeDetails = {
+            message: error === null || error === void 0 ? void 0 : error.message,
+            name: error === null || error === void 0 ? void 0 : error.name,
+            code: error === null || error === void 0 ? void 0 : error.code,
+            status,
+            url,
+        };
+        console.error("Error en flujo MessageHandler (sanitizado):", safeDetails);
         if (from) {
-            await (0, sender_1.sendWhatsAppMessage)(from, `Error: ${error.message}`);
+            await (0, sender_1.sendWhatsAppMessage)(from, "Perdón, justo tuve un error interno. En un ratito te respondo bien.");
         }
     }
 }
