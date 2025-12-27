@@ -8,7 +8,7 @@ export async function obtenerInventarioActualizado() {
     try {
         // Obtenemos solo los vehículos disponibles para no confundir al bot
         const snapshot = await db.collection("vehicles")
-            .where("status", "==", "Available")
+            // .where("status", "==", "Available") // Comentado para traer todo y evitar problemas de Case Sensitivity
             .limit(100)
             .get();
 
@@ -208,7 +208,7 @@ export async function processIncomingMessage(
             // Get history
             const historySnapshot = await chatRef.collection("history")
                 .orderBy("timestamp", "desc")
-                .limit(15).get(); // Increased limit
+                .limit(6).get(); // Reduced limit to save tokens
 
             const history = historySnapshot.docs.map(d => {
                 const hData = d.data();
@@ -224,6 +224,11 @@ export async function processIncomingMessage(
             // Usamos el session ID dinámico si existe, sino el teléfono por defecto
             const sessionIdToUse = data.currentSessionId || from;
 
+            // Preparar resumen de inventario para el modelo
+            const inventarioResumen = inventario.map(v =>
+                `${v.modelo} - $${v.precio?.toLocaleString('es-AR') || 'Consultar'}`
+            ).join('\n');
+
             const agentResponse = await enviarMensajeAlAgente(
                 sessionIdToUse, // leadId / Session ID dinámico
                 fullText,
@@ -231,29 +236,32 @@ export async function processIncomingMessage(
                     nombre: data?.leadData?.nombre || senderName,
                     telefono: from,
                     historial: history.join('\n'),
-                    inventario_disponible: inventario.length
+                    inventario_disponible: inventario.length,
+                    inventario_resumen: inventarioResumen // Texto completo del inventario
                 }
             );
 
             console.log(`[AGENT] Respuesta del agente:`, agentResponse.mensaje);
+            console.log(`[AGENT] Acción sugerida:`, agentResponse.accion);
+            console.log(`[AGENT] Vehículos identificados:`, agentResponse.vehiculos_identificados);
 
-            // El agente devuelve texto plano, lo adaptamos al formato esperado
+            // El modelo fine-tuned devuelve estructura JSON, la adaptamos al formato esperado
             const response = {
                 respuesta_cliente: {
                     mensaje_whatsapp: agentResponse.mensaje,
-                    accion_sugerida_app: null, // El agente maneja las acciones vía Tools
+                    accion_sugerida_app: agentResponse.accion || null,
                     media_urls: [],
                     media_url: null
                 },
-                gestion_lead: {
+                gestion_lead: agentResponse.raw?.gestion_lead || {
                     datos_extraidos: {},
                     actualizaciones_estado: {}
                 },
                 analisis_conversacional: {
-                    vehiculos_identificados: [],
-                    intencion_detectada: "CONSULTA"
+                    vehiculos_identificados: agentResponse.vehiculos_identificados || [],
+                    intencion_detectada: agentResponse.raw?.analisis_conversacional?.intencion_detectada || "CONSULTA"
                 },
-                razonamiento: "Procesado por Vertex AI Agent"
+                razonamiento: agentResponse.raw?.razonamiento || "Procesado por Modelo Fine-Tuned"
             };
 
             // Lead Management

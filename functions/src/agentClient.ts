@@ -1,77 +1,131 @@
-import { SessionsClient } from '@google-cloud/dialogflow-cx';
+import { VertexAI } from '@google-cloud/vertexai';
+import { SYSTEM_INSTRUCTION } from './prompts';
 
-// Configuración del Agente de Vertex AI desde variables de entorno
-const projectId = process.env.VERTEX_PROJECT_ID || '';
-const agentId = process.env.VERTEX_AGENT_ID || '';
-const location = process.env.VERTEX_LOCATION || 'us-central1';
+/**
+ * Cliente para el modelo fine-tuneado de Copiloto en Vertex AI
+ * SDK: @google-cloud/vertexai (Generative AI)
+ */
 
-// Cliente configurado con el endpoint regional correcto
-const client = new SessionsClient({
-    apiEndpoint: `${location}-dialogflow.googleapis.com`
-});
+const projectId = 'copiloto-crm-1764216245';
+const location = 'us-central1';
+// El modelo fine-tuneado se referencia por su ENDPOINT ID
+const fineTunedModelEndpoint = 'projects/copiloto-crm-1764216245/locations/us-central1/endpoints/3356227357949034496';
 
+// Cliente de Vertex AI - inicialización lazy
+let _vertexAI: VertexAI | null = null;
+
+function getVertexAI(): VertexAI {
+    if (!_vertexAI) {
+        _vertexAI = new VertexAI({
+            project: projectId,
+            location: location,
+        });
+    }
+    return _vertexAI;
+}
+
+interface ContextoAgente {
+    nombre?: string;
+    telefono?: string;
+    historial?: string;
+    inventario_disponible?: number;
+    inventario_resumen?: string;
+}
+
+interface RespuestaAgente {
+    mensaje: string;
+    accion?: string;
+    vehiculos_identificados?: string[];
+    raw: any;
+}
+
+/**
+ * Envía un mensaje al modelo fine-tuneado de Copiloto
+ */
 export async function enviarMensajeAlAgente(
     leadId: string,
     mensaje: string,
-    contexto: any
-) {
-    const sessionPath = client.projectLocationAgentSessionPath(
-        projectId,
-        location,
-        agentId,
-        leadId // Usamos el leadId como sessionId
-    );
+    contexto: ContextoAgente = {}
+): Promise<RespuestaAgente> {
 
-    console.log(`[AGENTE] Enviando mensaje al agente para lead ${leadId}`);
-    console.log(`[AGENTE] Project: ${projectId}, Agent: ${agentId}, Location: ${location}`);
-    console.log(`[AGENTE] Session path: ${sessionPath}`);
+    console.log(`[COPILOTO] Enviando mensaje a Gemini Fine-Tuned (Endpoint) para lead ${leadId}`);
+
+    const vertexAI = getVertexAI();
+
+    // Instanciar el modelo generativo usando el Endpoint del modelo fine-tuneado
+    const generativeModel = vertexAI.getGenerativeModel({
+        model: fineTunedModelEndpoint, // Aquí va el endpoint ID
+        generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1024,
+            topP: 0.95,
+            topK: 40,
+            responseMimeType: "application/json" // Forzamos salida JSON
+        }
+    });
+
+    // Construir el prompt
+    const inventarioTexto = (contexto.inventario_resumen || '').substring(0, 2000);
+    const historialTexto = (contexto.historial || '').substring(0, 800);
+
+    // Prompt de sistema (instrucciones base)
+    // Se combina la instrucción general con los datos dinámicos (inventario, cliente)
+    const systemPromptCombined = `${SYSTEM_INSTRUCTION}
+
+INVENTARIO ACTUAL DISPONIBLE:
+${inventarioTexto || 'Sin stock disponible en este momento.'}
+
+DATOS DEL CLIENTE:
+- Nombre: ${contexto.nombre || 'Desconocido'}
+- Teléfono: ${contexto.telefono || 'N/A'}
+- Lead ID: ${leadId}`;
+
+    const userPrompt = `
+HISTORIAL PREVIO:
+${historialTexto}
+
+NUEVO MENSAJE CLIENTE:
+${mensaje}
+`;
 
     try {
-        const request = {
-            session: sessionPath,
-            queryInput: {
-                text: {
-                    text: mensaje
-                },
-                languageCode: 'es'
-            },
-            queryParams: {
-                parameters: {
-                    fields: {
-                        nombre_cliente: { stringValue: contexto.nombre || '' },
-                        telefono_cliente: { stringValue: contexto.telefono || '' },
-                        historial_resumen: { stringValue: (contexto.historial || '').substring(0, 500) },
-                        inventario_count: { numberValue: contexto.inventario_disponible || 0 }
-                    }
-                }
-            }
-        };
+        const result = await generativeModel.generateContent({
+            contents: [
+                { role: 'user', parts: [{ text: systemPromptCombined + "\n\n" + userPrompt }] }
+            ]
+        });
 
-        const [response] = await client.detectIntent(request);
-        const queryResult = response.queryResult;
+        const response = result.response;
 
-        // Extraer texto de respuesta
-        const responseMessages = queryResult?.responseMessages || [];
-        const textos = responseMessages
-            .filter((msg: any) => msg.text)
-            .map((msg: any) => msg.text?.text?.join(' '))
-            .join('\n');
+        console.log(`[COPILOTO] Respuesta recibida de Gemini.`);
 
-        console.log(`[AGENTE] Respuesta recibida:`, textos.substring(0, 200));
+        if (!response.candidates || response.candidates.length === 0) {
+            throw new Error("No candidates received from Gemini");
+        }
 
-        return {
-            mensaje: textos || 'No entendí, ¿podés repetir?',
-            accion: null, // El agente maneja las acciones internamente
-            raw: response
-        };
+        const candidate = response.candidates[0];
+        const rawText = candidate.content.parts[0].text || "{}";
+
+        console.log(`[COPILOTO] Raw response: ${rawText.substring(0, 200)}...`);
+
+        try {
+            const jsonResponse = JSON.parse(rawText);
+            return {
+                mensaje: jsonResponse.respuesta_cliente?.mensaje_whatsapp || rawText,
+                accion: jsonResponse.respuesta_cliente?.accion_sugerida_app,
+                vehiculos_identificados: jsonResponse.analisis_conversacional?.vehiculos_identificados,
+                raw: jsonResponse
+            };
+        } catch (parseError) {
+            console.warn(`[COPILOTO] Respuesta no es JSON válido, usando texto plano`);
+            return {
+                mensaje: rawText,
+                raw: { rawText }
+            };
+        }
 
     } catch (error: any) {
-        console.error(`[AGENTE] Error al comunicarse con el agente:`, error);
-        console.error(`[AGENTE] Detalles del error:`, {
-            message: error.message,
-            code: error.code,
-            details: error.details
-        });
-        throw new Error(`Error del agente: ${error.message}`);
+        console.error(`[COPILOTO] Error Gemini:`, error.message);
+        throw new Error(`Error Gemini: ${error.message}`);
     }
 }
