@@ -23,7 +23,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.processIncomingMessage = void 0;
+exports.processIncomingMessage = exports.obtenerInventarioActualizado = void 0;
 const admin = __importStar(require("firebase-admin"));
 const agentClient_1 = require("./agentClient");
 const sender_1 = require("./sender");
@@ -33,7 +33,7 @@ async function obtenerInventarioActualizado() {
     try {
         // Obtenemos solo los vehículos disponibles para no confundir al bot
         const snapshot = await db.collection("vehicles")
-            .where("status", "==", "Available")
+            // .where("status", "==", "Available") // Comentado para traer todo y evitar problemas de Case Sensitivity
             .limit(100)
             .get();
         return snapshot.docs.map(doc => {
@@ -54,6 +54,7 @@ async function obtenerInventarioActualizado() {
         return [];
     }
 }
+exports.obtenerInventarioActualizado = obtenerInventarioActualizado;
 async function obtenerOCrearCatalogoCompleto(db) {
     var _a;
     const FULL_INVENTORY_ID = "FULL_INVENTORY_CATALOG"; // Cambiado de __FULL_INVENTORY__ (reservado)
@@ -132,17 +133,42 @@ async function gestionarLead(db, telefono, gestionLead, chatId, senderName) {
     return { leadId, leadRef };
 }
 async function processIncomingMessage(from, text, senderName) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     const db = admin.firestore();
+    console.log(`[HANDLER] Entry: Received message from ${from}: "${text}"`);
     console.log(`[HANDLER] Entry: Received message from ${from}: "${text}"`);
     const chatId = `chat_${from}`;
     const chatRef = db.collection("chats").doc(chatId);
+    // COMMAND: /RESET
+    if (text.trim().toLowerCase() === "/reset" || text.trim().toLowerCase() === "/clear") {
+        console.log(`[RESET] Limpiando sesión para ${from}`);
+        const newSessionId = `${from}_${Date.now()}`;
+        // 1. Update session ID and clear buffer
+        await chatRef.set({
+            currentSessionId: newSessionId,
+            buffer: [],
+            processing: false,
+            lastMessageTime: Date.now()
+        }, { merge: true });
+        // 2. Clear history (batch delete is better but this is quick for now)
+        const historySnapshot = await chatRef.collection("history").get();
+        const batch = db.batch();
+        historySnapshot.docs.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+        await (0, sender_1.sendWhatsAppMessage)(from, "🔄 Memoria reiniciada. Soy *Copiloto*, tu asistente de Meny Cars. ¿En qué te ayudo hoy?");
+        return;
+    }
     try {
         console.log(`[HANDLER] Running transaction for ${from}...`);
         const shouldProcess = await db.runTransaction(async (t) => {
+            var _a;
             const doc = await t.get(chatRef);
             const now = Date.now();
             let currentBuffer = [];
+            // Ensure session ID exists
+            if (!doc.exists || !((_a = doc.data()) === null || _a === void 0 ? void 0 : _a.currentSessionId)) {
+                t.set(chatRef, { currentSessionId: from }, { merge: true });
+            }
             if (doc.exists) {
                 const data = doc.data();
                 currentBuffer = (data === null || data === void 0 ? void 0 : data.buffer) || [];
@@ -176,40 +202,50 @@ async function processIncomingMessage(from, text, senderName) {
             // Get history
             const historySnapshot = await chatRef.collection("history")
                 .orderBy("timestamp", "desc")
-                .limit(15).get(); // Increased limit
+                .limit(6).get(); // Reduced limit to save tokens
             const history = historySnapshot.docs.map(d => {
                 const hData = d.data();
                 const role = hData.role === 'user' ? 'CLIENTE' : 'VENDEDOR (TÚ)';
                 return `${role}: ${hData.content}`;
             }).reverse();
             const inventario = await obtenerInventarioActualizado();
-            // AI Execution - Ahora usando Vertex AI Agent
-            console.log(`[AGENT] Llamando al Agente de Vertex AI para lead ${from}`);
-            const agentResponse = await (0, agentClient_1.enviarMensajeAlAgente)(from, // leadId - usamos el teléfono como session ID
+            // AI Execution - Usando Gemini Fine-Tuned (igual que WebChat)
+            console.log(`[AGENT] Llamando a Gemini Fine-Tuned para lead ${from}`);
+            // Usamos el session ID dinámico si existe, sino el teléfono por defecto
+            const sessionIdToUse = data.currentSessionId || from;
+            // Preparar resumen de inventario (Optimizado Top 20 igual que WebChat)
+            const inventarioResumen = inventario
+                .slice(0, 20)
+                .map(v => { var _a; return `${v.modelo} - $${((_a = v.precio) === null || _a === void 0 ? void 0 : _a.toLocaleString('es-AR')) || 'Consultar'}`; })
+                .join('\n');
+            const agentResponse = await (0, agentClient_1.enviarMensajeAlAgente)(sessionIdToUse, // leadId / Session ID dinámico
             fullText, {
                 nombre: ((_a = data === null || data === void 0 ? void 0 : data.leadData) === null || _a === void 0 ? void 0 : _a.nombre) || senderName,
                 telefono: from,
                 historial: history.join('\n'),
-                inventario_disponible: inventario.length
+                inventario_disponible: inventario.length,
+                inventario_resumen: inventarioResumen // Texto completo del inventario
             });
             console.log(`[AGENT] Respuesta del agente:`, agentResponse.mensaje);
-            // El agente devuelve texto plano, lo adaptamos al formato esperado
+            console.log(`[AGENT] Acción sugerida:`, agentResponse.accion);
+            console.log(`[AGENT] Vehículos identificados:`, agentResponse.vehiculos_identificados);
+            // El modelo fine-tuned devuelve estructura JSON, la adaptamos al formato esperado
             const response = {
                 respuesta_cliente: {
                     mensaje_whatsapp: agentResponse.mensaje,
-                    accion_sugerida_app: null,
+                    accion_sugerida_app: agentResponse.accion || null,
                     media_urls: [],
                     media_url: null
                 },
-                gestion_lead: {
+                gestion_lead: ((_b = agentResponse.raw) === null || _b === void 0 ? void 0 : _b.gestion_lead) || {
                     datos_extraidos: {},
                     actualizaciones_estado: {}
                 },
                 analisis_conversacional: {
-                    vehiculos_identificados: [],
-                    intencion_detectada: "CONSULTA"
+                    vehiculos_identificados: agentResponse.vehiculos_identificados || [],
+                    intencion_detectada: ((_d = (_c = agentResponse.raw) === null || _c === void 0 ? void 0 : _c.analisis_conversacional) === null || _d === void 0 ? void 0 : _d.intencion_detectada) || "CONSULTA"
                 },
-                razonamiento: "Procesado por Vertex AI Agent"
+                razonamiento: ((_e = agentResponse.raw) === null || _e === void 0 ? void 0 : _e.razonamiento) || "Procesado por Modelo Fine-Tuned"
             };
             // Lead Management
             const leadResult = await gestionarLead(db, from, response.gestion_lead, chatId, senderName);
@@ -217,7 +253,7 @@ async function processIncomingMessage(from, text, senderName) {
             let finalMessage = response.respuesta_cliente.mensaje_whatsapp;
             const accion = response.respuesta_cliente.accion_sugerida_app;
             console.log(`[AI_RESPONSE] Accion detectada: ${accion}`);
-            console.log(`[AI_RESPONSE] Vehiculos identificados:`, (_b = response.analisis_conversacional) === null || _b === void 0 ? void 0 : _b.vehiculos_identificados);
+            console.log(`[AI_RESPONSE] Vehiculos identificados:`, (_f = response.analisis_conversacional) === null || _f === void 0 ? void 0 : _f.vehiculos_identificados);
             if (leadResult && leadResult.leadId) {
                 if (accion === "ENVIAR_TASACION") {
                     const tradeInLink = `https://copiloto-crm-1764216245.web.app/public/trade-in?leadId=${leadResult.leadId}`;
@@ -347,8 +383,8 @@ async function processIncomingMessage(from, text, senderName) {
         }
     }
     catch (error) {
-        const status = (_c = error === null || error === void 0 ? void 0 : error.response) === null || _c === void 0 ? void 0 : _c.status;
-        const url = (_d = error === null || error === void 0 ? void 0 : error.config) === null || _d === void 0 ? void 0 : _d.url;
+        const status = (_g = error === null || error === void 0 ? void 0 : error.response) === null || _g === void 0 ? void 0 : _g.status;
+        const url = (_h = error === null || error === void 0 ? void 0 : error.config) === null || _h === void 0 ? void 0 : _h.url;
         const safeDetails = {
             message: error === null || error === void 0 ? void 0 : error.message,
             name: error === null || error === void 0 ? void 0 : error.name,
@@ -358,7 +394,8 @@ async function processIncomingMessage(from, text, senderName) {
         };
         console.error("Error en flujo MessageHandler (sanitizado):", safeDetails);
         if (from) {
-            await (0, sender_1.sendWhatsAppMessage)(from, "Perdón, justo tuve un error interno. En un ratito te respondo bien.");
+            // DEBUG MODE: Mostrar error al usuario
+            await (0, sender_1.sendWhatsAppMessage)(from, `🐛 Error Interno: ${JSON.stringify(safeDetails, null, 2)}`);
         }
     }
 }

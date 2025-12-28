@@ -1,5 +1,6 @@
 import * as functions from "firebase-functions";
 import { processIncomingMessage } from "./messageHandler";
+import { sendWhatsAppMessage } from "./sender";
 
 export const receiveEvolution = functions.https.onRequest(async (req, res) => {
     const body = req.body;
@@ -74,6 +75,7 @@ export const receiveEvolution = functions.https.onRequest(async (req, res) => {
         console.log(`[EVOLUTION] processIncomingMessage completed for ${from}`);
     } catch (err: any) {
         console.error(`[EVOLUTION] Error processing message from ${from}:`, err.message);
+        await sendWhatsAppMessage(from, `🔥 Error Crítico Receptor: ${err.message}`);
     }
 
     res.sendStatus(200);

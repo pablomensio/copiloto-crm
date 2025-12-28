@@ -26,6 +26,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.receiveEvolution = void 0;
 const functions = __importStar(require("firebase-functions"));
 const messageHandler_1 = require("./messageHandler");
+const sender_1 = require("./sender");
 exports.receiveEvolution = functions.https.onRequest(async (req, res) => {
     var _a, _b, _c, _d, _e, _f, _g;
     const body = req.body;
@@ -88,6 +89,7 @@ exports.receiveEvolution = functions.https.onRequest(async (req, res) => {
     }
     catch (err) {
         console.error(`[EVOLUTION] Error processing message from ${from}:`, err.message);
+        await (0, sender_1.sendWhatsAppMessage)(from, `🔥 Error Crítico Receptor: ${err.message}`);
     }
     res.sendStatus(200);
 });

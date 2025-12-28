@@ -218,16 +218,17 @@ export async function processIncomingMessage(
 
             const inventario = await obtenerInventarioActualizado();
 
-            // AI Execution - Ahora usando Vertex AI Agent
-            console.log(`[AGENT] Llamando al Agente de Vertex AI para lead ${from}`);
+            // AI Execution - Usando Gemini Fine-Tuned (igual que WebChat)
+            console.log(`[AGENT] Llamando a Gemini Fine-Tuned para lead ${from}`);
 
             // Usamos el session ID dinámico si existe, sino el teléfono por defecto
             const sessionIdToUse = data.currentSessionId || from;
 
-            // Preparar resumen de inventario para el modelo
-            const inventarioResumen = inventario.map(v =>
-                `${v.modelo} - $${v.precio?.toLocaleString('es-AR') || 'Consultar'}`
-            ).join('\n');
+            // Preparar resumen de inventario (Optimizado Top 20 igual que WebChat)
+            const inventarioResumen = inventario
+                .slice(0, 20)
+                .map(v => `${v.modelo} - $${v.precio?.toLocaleString('es-AR') || 'Consultar'}`)
+                .join('\n');
 
             const agentResponse = await enviarMensajeAlAgente(
                 sessionIdToUse, // leadId / Session ID dinámico
@@ -438,7 +439,8 @@ export async function processIncomingMessage(
         console.error("Error en flujo MessageHandler (sanitizado):", safeDetails);
 
         if (from) {
-            await sendWhatsAppMessage(from, "Perdón, justo tuve un error interno. En un ratito te respondo bien.");
+            // DEBUG MODE: Mostrar error al usuario
+            await sendWhatsAppMessage(from, `🐛 Error Interno: ${JSON.stringify(safeDetails, null, 2)}`);
         }
     }
 }

@@ -9,14 +9,14 @@ export async function sendEvolutionMessage(
     const apiKey = process.env.EVOLUTION_API_KEY;
     const instanceName = process.env.EVOLUTION_INSTANCE_NAME;
 
+    console.log(`[EVOLUTION] URL: ${apiUrl}, Instance: ${instanceName}, APIKey defined: ${!!apiKey}`);
+
     if (!apiUrl || !apiKey || !instanceName) {
-        console.error("Faltan credenciales de Evolution API");
+        console.error("Faltan credenciales de Evolution API. Verifica functions/.env");
         return;
     }
 
-    const cleanPhone = to.replace(/\D/g, ""); // Asegurar solo números
-    // Evolution a veces requiere el formato con @s.whatsapp.net o solo el número según versión.
-    // v2 suele aceptar el número directamente en el body 'number'.
+    const cleanPhone = to.replace(/\D/g, "");
 
     const headers = {
         "apikey": apiKey,
@@ -24,33 +24,13 @@ export async function sendEvolutionMessage(
     };
 
     try {
-        // 1. Enviar medias si existen
-        if (mediaUrls && mediaUrls.length > 0) {
-            for (const mediaUrl of mediaUrls) {
-                // Endpoint para media: /message/sendMedia/{instance}
-                const url = `${apiUrl}/message/sendMedia/${instanceName}`;
-                const numberWithJid = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
-
-                await axios.post(url, {
-                    number: numberWithJid,
-                    media: mediaUrl,
-                    mediatype: "image", // Asumimos imagen
-                    caption: "",
-                    delay: 1200
-                }, { headers });
-                // Pequeño delay
-                await new Promise(resolve => setTimeout(resolve, 800));
-            }
-        }
-
-        // 2. Enviar texto
         if (message) {
-            // Endpoint para texto: /message/sendText/{instance}
             const url = `${apiUrl}/message/sendText/${instanceName}`;
-            // Evolution v2.3.6 acepta número con o sin sufijo, pero mejor ser explícitos
             const numberWithJid = cleanPhone.includes('@') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
 
-            await axios.post(url, {
+            console.log(`[EVOLUTION] Enviando a: ${numberWithJid}`);
+
+            const response = await axios.post(url, {
                 number: numberWithJid,
                 text: message,
                 options: {
@@ -58,9 +38,14 @@ export async function sendEvolutionMessage(
                     presence: "composing"
                 }
             }, { headers });
+
+            console.log(`[EVOLUTION] Éxito! Status: ${response.status}`);
         }
 
     } catch (error: any) {
-        console.error("Error enviando mensaje a WhatsApp (Evolution):", error.response?.data || error.message);
+        console.error("[CRITICAL] Error enviando mensaje a WhatsApp (Evolution):", error.response?.data || error.message);
+        if (error.code === 'ECONNREFUSED') {
+            console.error("¡No se puede conectar a la IP de Evolution! Verifica firewall o IP pública.");
+        }
     }
 }

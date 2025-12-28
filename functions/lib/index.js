@@ -23,10 +23,12 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.toolCrearTarea = exports.toolAbrirCalculadora = exports.toolEnviarFicha = exports.toolBuscarVehiculos = exports.receiveEvolution = exports.createOrganization = void 0;
+exports.webChat = exports.toolCrearTarea = exports.toolAbrirCalculadora = exports.toolEnviarFicha = exports.toolBuscarVehiculos = exports.receiveEvolution = exports.createOrganization = void 0;
 const admin = __importStar(require("firebase-admin"));
 const evolutionReceiver_1 = require("./evolutionReceiver");
 Object.defineProperty(exports, "receiveEvolution", { enumerable: true, get: function () { return evolutionReceiver_1.receiveEvolution; } });
+const webChatEndpoint_1 = require("./webChatEndpoint");
+Object.defineProperty(exports, "webChat", { enumerable: true, get: function () { return webChatEndpoint_1.webChat; } });
 const createOrganization_1 = require("./createOrganization");
 Object.defineProperty(exports, "createOrganization", { enumerable: true, get: function () { return createOrganization_1.createOrganization; } });
 const agentTools_1 = require("./agentTools");

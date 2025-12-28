@@ -1,0 +1,75 @@
+# 📋 Reporte de Incidencia: Integración Vertex AI (Gemini) en Firebase Functions
+
+**Fecha:** 19 de Diciembre, 2025
+**Estado Actual:** El webhook recibe mensajes, pero falla al intentar obtener respuesta del modelo de IA, devolviendo un mensaje de error genérico al usuario ("Perdón, justo tuve un error interno...").
+
+## 1. Contexto Técnico
+*   **Infraestructura:** Firebase Functions Gen 2 (Node.js 20).
+*   **Lenguaje:** TypeScript.
+*   **Integración WhatsApp:** Evolution API (Webhook funcionando correctamente).
+*   **Modelo IA:** Vertex AI (Google Cloud). Se intentó usar un modelo *fine-tuned* desplegado en un Endpoint y un modelo público como fallback.
+*   **Autenticación:** `google-auth-library` (Application Default Credentials).
+
+## 2. El Problema
+El sistema falla en la comunicación entre la Cloud Function y Vertex AI. Aunque la función se ejecuta, la petición a la API de Vertex devuelve errores (400 o 404), lo que dispara el bloque `catch` en `messageHandler.ts` y envía el mensaje de error por defecto.
+
+## 3. Evidencia y Logs
+
+### A. Error de Configuración "Zombie" (Resuelto)
+Inicialmente, la función apuntaba a un recurso `models/...` antiguo a pesar de actualizar el `.env`.
+
+**Comando usado:**
+`firebase functions:log --only receiveEvolution`
+
+**Log capturado:**
+```text
+2025-12-19T05:02:22Z ? receiveevolution: [VERTEX] Usando modelo: projects/copiloto-crm-1764216245/locations/us-central1/models/3356227357949034496
+```
+**Conclusión:** Firebase no estaba refrescando las variables de entorno en el despliegue.
+**Solución:** Se forzó la actualización del código para priorizar el nuevo Endpoint ID.
+
+### B. Error de Método en Endpoint (Bloqueante Actual)
+Al apuntar correctamente al Endpoint, Vertex AI rechaza la petición `predict`.
+
+**Comando usado:**
+`firebase functions:log --only receiveEvolution`
+
+**Log capturado:**
+```text
+2025-12-19T05:41:19.245497Z ? receiveevolution: [VERTEX] Usando modelo: projects/copiloto-crm-1764216245/locations/us-central1/endpoints/3658038901727035392
+2025-12-19T05:41:19.311162Z ? receiveevolution: [VERTEX] Error llamando predict. status=400 url=https://us-central1-aiplatform.googleapis.com/v1/projects/copiloto-crm-1764216245/locations/us-central1/endpoints/3658038901727035392:predict
+2025-12-19T05:41:19.311303Z ? receiveevolution: [VERTEX] Response: {"error":{"code":400,"message":"Gemini cannot be accessed through Vertex Predict/RawPredict API. Please follow https://cloud.google.com/vertex-ai/docs/generative-ai/start/quickstarts/quickstart-multimodal for Gemini usage.","status":"FAILED_PRECONDITION"}}
+```
+**Conclusión:** Los modelos Gemini desplegados en Endpoints **no soportan** el método estándar `predict`. Requieren usar `generateContent`.
+
+### C. Fallo en el Fallback
+Implementamos una lógica para que, si falla el Endpoint, intente usar el modelo público `gemini-1.5-flash-001`. El usuario reportó "Error interno", lo que indica que este fallback también falló y cayó al `catch` general.
+
+**Comando usado:**
+`firebase functions:log --only receiveEvolution` (Revisión posterior al reporte del usuario)
+
+**Log capturado (Inferencia):**
+```text
+2025-12-19T05:54:31.929692Z ? receiveevolution: Error en flujo MessageHandler (sanitizado): { message: 'Request failed with status code 400', ... }
+```
+**Conclusión:** El error persiste incluso intentando cambiar de método o modelo, sugiriendo un problema de permisos IAM o configuración de la URL de fallback.
+
+## 4. Estrategias Implementadas (Lo que ya hicimos)
+
+1.  **Migración a Endpoint:** Se creó un Endpoint en Vertex AI para el modelo.
+2.  **Lógica de Selección de Método:** Se modificó `genkitFlow.ts` para intentar usar `:predict` y `:generateContent`.
+3.  **Manejo de Errores Específico:** Se agregó detección del error "Gemini cannot be accessed..." para activar el fallback.
+4.  **Sistema de Fallback:** Se programó el uso del modelo público `gemini-1.5-flash-001` si el Endpoint falla.
+
+## 5. Información Clave para el Nuevo Agente
+
+### Recursos
+*   **Project ID:** `copiloto-crm-1764216245`
+*   **Location:** `us-central1`
+*   **Endpoint ID (Tuned Model):** `3658038901727035392`
+*   **Service Account:** `127628700164-compute@developer.gserviceaccount.com`
+
+### Hipótesis y Pasos Recomendados
+1.  **Verificar Permisos IAM:** Es muy probable que la Service Account por defecto de App Engine/Cloud Functions (`127628700164-compute@...`) **no tenga el rol "Vertex AI User"**. Esto haría que fallen tanto el Endpoint como el Fallback.
+2.  **Validar URL de Endpoint para Gemini:** Investigar si un modelo Gemini *Tuned* desplegado en un Endpoint soporta realmente `generateContent` en la ruta `v1/projects/.../endpoints/...:generateContent`.
+3.  **Prueba Aislada:** Crear un script local para probar las URLs exactas con `gcloud auth application-default login`.
